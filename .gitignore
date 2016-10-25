@@ -1,0 +1,4 @@
+/gyp-projects
+*.pyc
+_all_source_files.txt
+/gyp-out

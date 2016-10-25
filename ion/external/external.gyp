@@ -306,6 +306,9 @@
         'NOUNCRYPT=1',
         'STDC',
       ],
+      'include_dirs': [
+        '../../third_party/zlib/src/',
+      ],
       'all_dependent_settings': {
         'include_dirs': [
           '../../third_party/zlib/src/',
@@ -421,14 +424,6 @@
                 '4099',   # Type struct reused as class.
               ],
             },
-            'conditions': [
-              ['angle or ogles20', {
-                'include_dirs': [
-                  # TODO(user): Is this set anyhwere?
-                  #'<(ANGLE_SOURCE)/include',
-                ],
-              }],
-            ],  # conditions
           }],
           ['OS in ["linux", "windows"] and not angle', {
             'include_dirs': [
