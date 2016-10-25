@@ -13,28 +13,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Declares demos, all_public_libraries and all_tests aggregate targets.
-#
-# The targets in this file are here just to serve as groupings, so that "all of
-# Ion" can be built by pointing gyp to this file. Do NOT depend on the targets
-# in this file to build your Ion-dependent thing, point to the individual Ion
-# library targets you need.
 {
   'includes': [
-    'common.gypi',
-  ],
-
+    '../ion/common.gypi',
+  ],  # includes
   'targets': [
     {
-      'target_name': 'Snapshot',
-      'type': 'none',
-      'conditions': [
-        ['OS != "qnx"', {
-          'dependencies' : [
-            '../Snapshot/Snapshot.gyp:*',
-          ],
-        }],
-      ],  # conditions
-    },    
-  ],
+      # This library is linked with all demos.
+      'target_name': 'iondemo',
+      'type': 'static_library',
+      'sources': [
+        'demobase.cc',
+        'demobase.h',
+        'utils.cc',
+        'utils.h',
+        'viewerdemobase.cc',
+        'viewerdemobase.h',
+      ],
+      'dependencies' : [
+        '<(ion_dir)/base/base.gyp:ionbase',
+        '<(ion_dir)/text/text.gyp:iontext',
+        '<(ion_dir)/remote/remote.gyp:ionremote',
+      ],
+    },  # target: iondemo
+  ],  # targets
 }

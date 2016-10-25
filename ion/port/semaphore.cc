@@ -159,7 +159,8 @@ bool Semaphore::TimedWaitMs(int64 timeout_in_ms) {
     return true;
   }
   // Slow path.  Wait until signalled, or timeout expires.
-  if (WaitForSingleObject(semaphore_, timeout_in_ms) == WAIT_OBJECT_0) {
+  if (WaitForSingleObject(semaphore_, static_cast<DWORD>(timeout_in_ms)) ==
+          WAIT_OBJECT_0) {
     // Semaphore was signalled within time limit.
     return true;
   } else {

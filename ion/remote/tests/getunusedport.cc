@@ -19,7 +19,7 @@ limitations under the License.
 #include "ion/remote/tests/getunusedport.h"
 
 #if defined(ION_PLATFORM_WINDOWS)
-#include <io.h>
+#include <winsock2.h>
 #define close(fd) closesocket(fd)
 typedef int socklen_t;
 #else
@@ -111,7 +111,8 @@ class PortIterator {
 static bool IsPortAvailable(int* port, bool is_tcp) {
   DCHECK_GE(*port, 0);
   const int proto = is_tcp ? IPPROTO_TCP : 0;
-  const int fd = socket(AF_INET, is_tcp ? SOCK_STREAM : SOCK_DGRAM, proto);
+  const int fd = static_cast<int>(
+      socket(AF_INET, is_tcp ? SOCK_STREAM : SOCK_DGRAM, proto));
   if (fd < 0) {
     return false;
   }

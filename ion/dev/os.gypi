@@ -96,7 +96,7 @@
             'DebugInformationFormat': '3',  # /Zi
             'BasicRuntimeChecks': '1',  # '/RTC1' enable fast checks
             'RuntimeLibrary': '3',      # Multithreaded debug DLL (/MDd).
-            'AdditionalOptions': ['/FS'],  # Force synchronous pdb writing.
+            'AdditionalOptions': '/FS',  # Force synchronous pdb writing.
           },
 
           'VCLinkerTool': {
@@ -145,7 +145,7 @@
             'RuntimeLibrary': '2',       # Multithreaded DLL (/MD).
             'BufferSecurityCheck': 'true',
             'DebugInformationFormat': '3',  # /Zi
-            'AdditionalOptions': ['/FS'],  # Force synchronous pdb writing.
+            'AdditionalOptions': '/FS',  # Force synchronous pdb writing.
           },
           'VCLinkerTool': {
             'LinkIncremental': '1',      # Disabled.
@@ -729,7 +729,7 @@
             'StringPooling': 'true',  # /GF
             'SuppressStartupBanner': 'true',  # /nologo
             'WarningLevel': '3',  # /W3  TODO(user):  Raise to /W4.
-            'AdditionalOptions': ['/bigobj', '/Zm500'],
+            'AdditionalOptions': '/bigobj /Zm500',
             'ExceptionHandling': '1',
           },
           'VCResourceCompilerTool': {

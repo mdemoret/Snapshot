@@ -20,6 +20,11 @@ limitations under the License.
 
 #include <string>
 
+// This appears to be a macro in some versions of Visual Studio.
+#ifdef ERROR
+#  undef ERROR
+#endif
+
 namespace ion {
 namespace port {
 

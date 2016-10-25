@@ -226,7 +226,7 @@ IonGearsDemo::IonGearsDemo(int width, int height)
       .Bind(gi.rotation, "aInstanceRotation", 1)
       .Apply(reg, gear_shape_->GetAttributeArray(), gear_info_buffer_);
 
-  gear_count_index_ = gear_->AddUniform(reg->Create<ion::gfx::Uniform, uint>(
+  gear_count_index_ = gear_->AddUniform(reg->Create<ion::gfx::Uniform, uint32>(
       "uGearCount", gear_rows_ * gear_columns_));
 
   root_->AddChild(gear_);
@@ -276,7 +276,7 @@ void IonGearsDemo::UpdateGearUniforms(uint64 frame_count) {
   const float row_offset = static_cast<float>(gear_rows_ - 1) / 2.f;
 
   gear_shape_->SetInstanceCount(gear_count);
-  gear_->SetUniformValue<uint>(gear_count_index_, gear_count);
+  gear_->SetUniformValue<uint32>(gear_count_index_, gear_count);
 
   // Lay out the gears in a square grid.
   for (int i = 0; i < gear_columns_; ++i) {

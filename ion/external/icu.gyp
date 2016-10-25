@@ -47,6 +47,8 @@
       ],
       'msvs_disabled_warnings': [
         '4005', # Macro redefinition. ICU headers define WIN32_LEAN_AND_MEAN.
+        '4018', # Signed/unsigned mismatch in comparisons.
+        '4091', # Signed/unsigned mismatch in comparisons.
         '4244', # Conversion from 64-bit to 32-bit types.
         '4267', # Conversion from 64-bit to 32-bit types.
         '4996', # 'uidna_toASCII': was declared deprecated.

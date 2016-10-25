@@ -56,3 +56,6 @@
 [submodule "third_party/tinyxml"]
 	path = third_party/tinyxml
 	url = https://github.com/icebreaker/TinyXML
+[submodule "third_party/glfw"]
+	path = third_party/glfw
+	url = https://github.com/glfw/glfw

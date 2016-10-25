@@ -21,6 +21,7 @@ limitations under the License.
 #include "base/macros.h"
 
 #if defined(ION_PLATFORM_WINDOWS)
+#include <windows.h>
 #include <winnt.h>
 #endif
 

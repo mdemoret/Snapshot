@@ -245,7 +245,7 @@ class BufferToAttributeBinder {
     ION_STATIC_ASSERT((!base::IsSameType<void, ResolvedFieldType>::value),
                       "Cannot resolve attribute type to bind");
     const char* field_address = reinterpret_cast<const char*>(&field);
-    const ssize_t offset = field_address - base_address_;
+    const size_t offset = field_address - base_address_;
     bindings_.push_back(Binding(offset, GetComponentCount<ResolvedFieldType>(),
                                 sizeof(FieldType), attribute_name,
                                 GetComponentType<ResolvedFieldType>(),

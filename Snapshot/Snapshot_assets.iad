@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<IAD name="SnapshotAssets">
+  <assets>
+    <file name="point.frag">shaders/point.frag</file>
+    <file name="point.vert">shaders/point.vert</file>
+  </assets>
+  <assets>
+    <file name="Hud.ttf">third_party/webfonts/ufl/ubuntu/Ubuntu-Regular.ttf</file>
+  </assets>
+</IAD>

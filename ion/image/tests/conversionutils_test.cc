@@ -24,6 +24,7 @@ limitations under the License.
 #include <vector>
 
 #include "base/macros.h"  // For ARRAYSIZE().
+#include "base/integral_types.h"
 #include "ion/base/datacontainer.h"
 #include "ion/base/logchecker.h"
 #include "ion/image/tests/image_bytes.h"
@@ -423,8 +424,8 @@ static void TestNullIonRaw(const uint8* ion_raw_data,
 // Copy N bytes per pixel from a source array of 4 byte pixels.
 static void Copy4BppToN(const uint8 *src, size_t num_pixels, uint8 *dst,
     size_t num_channels) {
-  for (uint i = 0; i < num_pixels; i++) {
-    for (uint j = 0; j < 4; j++) {
+  for (size_t i = 0; i < num_pixels; i++) {
+    for (size_t j = 0; j < 4; j++) {
       if (j < num_channels) *(dst++) = *src;
       src++;
     }
