@@ -19,12 +19,14 @@ class UniformBlock;
 class GraphicsManager;
 class Renderer;
 class Node;
+class BufferObject;
 
 typedef base::ReferentPtr<GraphicsManager>::Type GraphicsManagerPtr;
 typedef base::ReferentPtr<Renderer>::Type RendererPtr;
 typedef base::ReferentPtr<Node>::Type NodePtr;
 typedef base::ReferentPtr<UniformBlock>::Type UniformBlockPtr;
 typedef base::ReferentPtr<StateTable>::Type StateTablePtr;
+typedef base::ReferentPtr<BufferObject>::Type BufferObjectPtr;
 }
 
 namespace gfxutils{

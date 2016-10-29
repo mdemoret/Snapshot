@@ -15,18 +15,22 @@ limitations under the License.
 
 */
 attribute vec3 aVertex;
-attribute vec3 aColor;
+attribute vec3 aNormal;
 
 uniform mat4 uProjectionMatrix;
 uniform mat4 uModelviewMatrix;
-uniform float uPointSize;
+uniform mat4 uModelMatrix;
+uniform mat3 uNormalMatrix;
 
-varying vec4 vColor;
+//The following values frame depends on whether bump mapping is enabled
+varying vec3 vNormal_WS;
+varying vec3 vFragPos_WS;
 
-void main(void) {
-   gl_Position = uProjectionMatrix * uModelviewMatrix * vec4(aVertex, 1);
-   
-   vColor = vec4(aColor, 1.0);
+void main()
+{
+   //Calc position and pass tex coord
+   gl_Position = uProjectionMatrix * uModelviewMatrix * vec4(aVertex, 1.0f);
 
-   gl_PointSize = uPointSize;
+   vFragPos_WS = vec3(uModelMatrix * vec4(aVertex, 1.0f));
+   vNormal_WS = normalize(uNormalMatrix * aNormal); 
 }

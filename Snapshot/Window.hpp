@@ -51,10 +51,6 @@ private:
    //Mouse properties
    int m_MouseDownButton;
    ion::math::Point2d m_MouseLastPos;
-
-   ion::math::Angled m_CameraRA;
-   ion::math::Angled m_CameraDEC;
-   ion::math::Vector1d m_CameraRadius;
 };
 
 

@@ -22,7 +22,7 @@ public:
    /**
    The position of the camera.
    */
-   const ion::math::Point3d & PositionWorld() const;
+   ion::math::Point3d PositionWorld() const;
    void SetPositionWorld(const ion::math::Point3d & positionWorld);
    void OffsetPositionWorld(const ion::math::Vector3d & offsetWorld);
 
@@ -80,7 +80,7 @@ public:
 
    Does not include translation (the camera's position).
    */
-   const ion::math::Rotationd & Orientation() const;
+   ion::math::Rotationd Orientation() const;
    void SetOrientation(const ion::math::Rotationd & orient);
 
    const ion::math::Vector3d & Scale() const;
@@ -91,8 +91,15 @@ public:
 
    @param position  the position to look at
    */
-   void LookAt(const ion::math::Point3d & center, const ion::math::Vector3d & up);
+   void SetLookAt(const ion::math::Point3d & lookAtCenter);
+   void SetRA(ion::math::Angled ra);
+   void SetDEC(ion::math::Angled dec);
+   void SetRadius(ion::math::Vector1d radius);
+
    void LookAt(const ion::math::Point3d & eye, const ion::math::Point3d & center, const ion::math::Vector3d & up);
+
+   void DeltaViewpoint(const ion::math::Angled & deltaRa, const ion::math::Angled & deltaDec, const ion::math::Vector1d & deltaRange);
+   void ScaleViewpoint(double scaleRa, double scaleDec, double scaleRange);
 
    //Methods to set the projection matrix
    void Perspective(const ion::math::Angled fov, const double aspect, const double nearPlane, const double farPlane);
@@ -122,13 +129,13 @@ public:
    uint32_t GetViewportY() const;
 
    /** A unit vector representing the direction the camera is facing */
-   const ion::math::Vector3d & Forward() const;
+   ion::math::Vector3d Forward() const;
 
    /** A unit vector representing the direction to the right of the camera*/
-   const ion::math::Vector3d & Right() const;
+   ion::math::Vector3d Right() const;
 
    /** A unit vector representing the direction out of the top of the camera*/
-   const ion::math::Vector3d & Up() const;
+   ion::math::Vector3d Up() const;
 
    /**
    The combined camera transformation matrix, including perspective projection.
@@ -162,9 +169,14 @@ private:
    ion::math::Range2ui m_WindowBounds; //X, Y, Width, Height
 
    //View Parameters
-   ion::math::Vector3d m_Scale;
-   ion::math::Point3d m_PositionWorld;
-   ion::math::Rotationd  m_Orientation;
+   //ion::math::Vector3d m_Scale;
+   //ion::math::Point3d m_PositionWorld;
+   //ion::math::Rotationd m_Orientation;
+
+   ion::math::Point3d m_LookAtCenter;
+   ion::math::Angled m_RA;
+   ion::math::Angled m_DEC;
+   ion::math::Vector1d m_Radius;
 
    //Projection parameters
    bool m_PerspectiveProjection; //true for perspective, false for ortho
@@ -193,7 +205,5 @@ private:
    ion::gfx::StateTablePtr m_RootStateTable;
    ion::gfx::UniformBlockPtr m_ViewportUniforms;
    ion::gfx::UniformBlockPtr m_3dUniforms;
-
-
 };
 

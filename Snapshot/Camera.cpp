@@ -7,17 +7,15 @@
 #include "ion/gfx/shaderinputregistry.h"
 #include "ion/gfx/statetable.h"
 #include "Macros.h"
+#include "ion/math/angleutils.h"
 
 using namespace ion::gfx;
 using namespace ion::math;
 
 static const float MaxVerticalAngle = 85.0f; //must be less than 90 to avoid gimbal lock
 
-Camera::Camera(ion::gfx::StateTablePtr rootStateTable) :
+Camera::Camera(StateTablePtr rootStateTable) :
    m_WindowBounds(Range2ui::BuildWithSize(Point2ui::Zero(), Vector2ui::Fill(100))),
-   m_Scale(Vector3d::Fill(1.0)),
-   m_PositionWorld(0.0, 0.0, 0.0),
-   m_Orientation(Rotationd::Identity()),
    m_PerspectiveProjection(true),
    m_NearPlane(0.01),
    m_FarPlane(100.0),
@@ -31,15 +29,19 @@ Camera::Camera(ion::gfx::StateTablePtr rootStateTable) :
    c_ProjectionMatrix(Matrix4d::Identity()),
    c_ViewMatrixDirty(true),
    c_ViewMatrix(Matrix4d::Identity()),
-   m_RootStateTable(rootStateTable)
+   m_RootStateTable(rootStateTable),
+   m_LookAtCenter(Point3d::Zero()),
+   m_RA(Angled::FromDegrees(0.0)),
+   m_DEC(Angled::FromDegrees(0.0)),
+   m_Radius(Vector1d(4.0))
 {
    //Build the uniform block that will always be set by the camera
    m_ViewportUniforms = UniformBlockPtr(new UniformBlock());
    m_3dUniforms = UniformBlockPtr(new UniformBlock());
 
-   m_ViewportUniforms->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<ion::gfx::Uniform>(UNIFORM_GLOBAL_VIEWPORTSIZE, Vector2i(100, 100)));
-   m_3dUniforms->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<ion::gfx::Uniform>(UNIFORM_GLOBAL_PROJECTIONMATRIX, Matrix4f::Identity()));
-   m_3dUniforms->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<ion::gfx::Uniform>(UNIFORM_GLOBAL_MODELVIEWMATRIX, Matrix4f::Identity()));
+   m_ViewportUniforms->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_VIEWPORTSIZE, Vector2i(100, 100)));
+   m_3dUniforms->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_PROJECTIONMATRIX, Matrix4f::Identity()));
+   m_3dUniforms->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_MODELVIEWMATRIX, Matrix4f::Identity()));
 }
 
 Camera::~Camera() {}
@@ -51,12 +53,12 @@ void Camera::UpdateUniforms()
    m_3dUniforms->SetUniformByName<Matrix4f>(UNIFORM_GLOBAL_MODELVIEWMATRIX, Matrix4f(ViewMatrix()));
 }
 
-const ion::gfx::UniformBlockPtr& Camera::GetViewportUniforms() const
+const UniformBlockPtr& Camera::GetViewportUniforms() const
 {
    return m_ViewportUniforms;
 }
 
-const ion::gfx::UniformBlockPtr& Camera::Get3dUniforms() const
+const UniformBlockPtr& Camera::Get3dUniforms() const
 {
    return m_3dUniforms;
 }
@@ -80,28 +82,27 @@ const ion::gfx::UniformBlockPtr& Camera::Get3dUniforms() const
 //   c_ProjectionMatrixDirty = true;
 //}
 
-const Point3d& Camera::PositionWorld() const
+Point3d Camera::PositionWorld() const
 {
-   return m_PositionWorld;
+   return m_Radius[0] * Point3d(Cosine(m_RA) * Cosine(m_DEC), Sine(m_RA) * Cosine(m_DEC), Sine(m_DEC)) + m_LookAtCenter;
 }
 
 void Camera::SetPositionWorld(const Point3d& positionWorld)
 {
-   if (m_PositionWorld == positionWorld)
+   Point3d currentPosition = PositionWorld();
+
+   if (currentPosition == positionWorld)
       return;
 
-   m_PositionWorld = positionWorld;
-
-   c_ViewMatrixDirty = true;
-   c_ViewProjectionMatrixDirty = true;
+   OffsetPositionWorld(positionWorld - currentPosition);
 }
 
 void Camera::OffsetPositionWorld(const Vector3d& offsetWorld)
 {
-   if (ion::math::Length(offsetWorld) == 0.0)
+   if (Length(offsetWorld) == 0.0)
       return;
 
-   m_PositionWorld += offsetWorld;
+   m_LookAtCenter += offsetWorld;
 
    c_ViewMatrixDirty = true;
    c_ViewProjectionMatrixDirty = true;
@@ -209,53 +210,120 @@ void Camera::SetNearAndFarPlanes(const double nearPlane, const double farPlane)
    //c_FrustrumPlanes.clear();
 }
 
-const Rotationd& Camera::Orientation() const
-{
-   return m_Orientation;
-}
+//Rotationd Camera::Orientation() const
+//{
+//   return m_Orientation;
+//}
+//
+//void Camera::SetOrientation(const Rotationd& orient)
+//{
+//   if (m_Orientation == orient)
+//      return;
+//
+//   m_Orientation = orient;
+//
+//   c_ViewMatrixDirty = true;
+//   c_ViewProjectionMatrixDirty = true;
+//}
+//
+//const Vector3d& Camera::Scale() const
+//{
+//   return m_Scale;
+//}
+//
+//void Camera::SetScale(const Vector3d& scale)
+//{
+//   if (m_Scale == scale)
+//      return;
+//
+//   m_Scale = scale;
+//
+//   c_ViewMatrixDirty = true;
+//   c_ViewProjectionMatrixDirty = true;
+//}
 
-void Camera::SetOrientation(const Rotationd& orient)
+void Camera::SetLookAt(const ion::math::Point3d& lookAtCenter) 
 {
-   if (m_Orientation == orient)
+   if (m_LookAtCenter == lookAtCenter)
       return;
 
-   m_Orientation = orient;
+   m_LookAtCenter = lookAtCenter;
 
    c_ViewMatrixDirty = true;
    c_ViewProjectionMatrixDirty = true;
 }
 
-const Vector3d& Camera::Scale() const
+void Camera::SetRA(ion::math::Angled ra)
 {
-   return m_Scale;
-}
+   while (ra >= Angled::FromDegrees(360.0))
+      ra -= Angled::FromDegrees(360.0);
+   while (ra < Angled::FromDegrees(0.0))
+      ra += Angled::FromDegrees(360.0);
 
-void Camera::SetScale(const Vector3d& scale)
-{
-   if (m_Scale == scale)
+   if (m_RA == ra)
       return;
 
-   m_Scale = scale;
+   m_RA = ra;
 
    c_ViewMatrixDirty = true;
    c_ViewProjectionMatrixDirty = true;
 }
 
-void Camera::LookAt(const Point3d& center, const Vector3d& up)
-{
-   LookAt(m_PositionWorld, center, up);
+void Camera::SetDEC(ion::math::Angled dec) {
+   while (dec <= Angled::FromDegrees(-180.0))
+      dec += Angled::FromDegrees(360.0);
+   while (dec > Angled::FromDegrees(180.0))
+      dec -= Angled::FromDegrees(360.0);
+
+   if (m_DEC == dec)
+      return;
+
+   m_DEC = dec;
+
+   c_ViewMatrixDirty = true;
+   c_ViewProjectionMatrixDirty = true;
 }
 
-void Camera::LookAt(const Point3d& eye, const Point3d& center, const Vector3d& up)
+void Camera::SetRadius(ion::math::Vector1d radius) 
 {
-   DCHECK(eye != center);
-   DCHECK(Length(up) != 0.0);
+   if (radius[0] < 1e-6)
+      radius[0] = 1e-6f;
 
+   if (radius[0] > 1e12)
+      radius[0] = 1e12f;
+
+   if (m_Radius == radius)
+      return;
+
+   m_Radius = radius;
+
+   c_ViewMatrixDirty = true;
    c_ViewProjectionMatrixDirty = true;
+}
 
-   //Use the set methods since they will correctly refresh the dirty flags if necessary
-   SetPositionWorld(eye);
-   SetOrientation(Rotationd::FromRotationMatrix(NonhomogeneousSubmatrixH(LookAtMatrixFromCenter(eye, center, up))));//Get the 3x3 top left elements when using the look at method
+//void Camera::LookAt(const Point3d& eye, const Point3d& center, const Vector3d& up)
+//{
+//   DCHECK(eye != center);
+//   DCHECK(Length(up) != 0.0);
+//
+//   c_ViewProjectionMatrixDirty = true;
+//
+//   //Use the set methods since they will correctly refresh the dirty flags if necessary
+//   SetPositionWorld(eye);
+//   SetOrientation(Rotationd::FromRotationMatrix(NonhomogeneousSubmatrixH(LookAtMatrixFromCenter(eye, center, up))));//Get the 3x3 top left elements when using the look at method
+//}
+
+void Camera::DeltaViewpoint(const ion::math::Angled& deltaRa, const ion::math::Angled& deltaDec, const ion::math::Vector1d& deltaRange) 
+{
+   SetRA(m_RA + deltaRa);
+   SetDEC(m_DEC + deltaDec);
+   SetRadius(m_Radius + deltaRange);
+}
+void Camera::ScaleViewpoint(double scaleRa, double scaleDec, double scaleRange) 
+{
+   SetRA(m_RA * scaleRa);
+   SetDEC(m_DEC * scaleDec);
+   SetRadius(m_Radius * scaleRange);
 }
 
 void Camera::Perspective(const Angled fov, const double aspect, const double nearPlane, const double farPlane)
@@ -374,6 +442,10 @@ uint32_t Camera::GetViewportY() const
 //   return m_Orientation[1];
 //}
 
+ion::math::Vector3d Camera::Up() const {
+   return Vector3d(-Cosine(m_RA) * Sine(m_DEC), -Sine(m_RA) * Sine(m_DEC), Cosine(m_DEC));
+}
+
 const Matrix4d& Camera::ViewProjectionMatrix() const
 {
    if (c_ViewProjectionMatrixDirty)
@@ -411,7 +483,9 @@ const Matrix4d& Camera::ViewMatrix() const
       //Calc the view matrix from scale * orient * translate. This is backwards from the normal order for model matricies
       //c_ViewMatrix = glm::scale(Matrix4d(Orientation()) * glm::translate(Matrix4d(1.0), -m_PositionWorld), m_Scale);
 
-      c_ViewMatrix = (RotationMatrixH(Orientation()) * TranslationMatrix(-m_PositionWorld)) * ScaleMatrixH(m_Scale);
+      //c_ViewMatrix = (RotationMatrixH(Orientation()) * TranslationMatrix(-m_PositionWorld)) * ScaleMatrixH(m_Scale);
+
+      c_ViewMatrix = LookAtMatrixFromCenter(PositionWorld(), m_LookAtCenter, Up());
       c_ViewMatrixDirty = false;
    }
 

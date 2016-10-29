@@ -25,21 +25,19 @@ precision mediump float;
 
 uniform float uPointSize;
 
-varying vec4 v_color;
+varying vec4 vColor;
 
 void main(void) {
-  //Dist from the center of the point   
-   vec2 v2Dist = gl_PointCoord - vec2(0.5);
-   
-   float fWidth = length(vec2(length(dFdx(v2Dist)), length(dFdy(v2Dist)))) * 0.70710678118654757;
-   
-   float fDist = -(length(v2Dist) / fWidth) + (uPointSize / 2.0);
 
-   if (fDist < -1.0)
-      discard;
-   
-   float fAlpha = smoothstep(-0.75, 0.75, fDist);
+    vec2 cxy = 2.0 * gl_PointCoord - 1.0;
 
-   // final color
-   gl_FragColor = vec4(v_color.rgb, v_color.a * fAlpha);
+    float r = length(cxy);
+
+    if (r > 1.0)
+        discard;
+
+    float delta = fwidth(r);
+    float alpha = 1.0 - smoothstep(1.0 - delta, 1.0 + delta, r);
+
+    gl_FragColor = vec4(vColor.rgb * alpha, alpha);
 }

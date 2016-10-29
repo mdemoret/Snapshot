@@ -31,18 +31,19 @@ SceneBase::SceneBase():
    m_Root = NodePtr(new Node());
    m_Root->SetLabel("Root");
 
-   ion::gfx::StateTablePtr state_table(new ion::gfx::StateTable(800, 600));
+   StateTablePtr state_table(new StateTable(800, 600));
    //state_table->SetViewport(
    //   Range2i::BuildWithSize(Point2i(0, 0), Vector2i(width, height)));
-   state_table->SetClearColor(Vector4f(0.1f, 0.1f, 0.1f, 1.0f));
+   state_table->SetClearColor(Vector4f(0.05f, 0.05f, 0.05f, 1.0f));
    state_table->SetClearDepthValue(1.f);
-   state_table->Enable(ion::gfx::StateTable::kDepthTest, true);
-   state_table->Enable(ion::gfx::StateTable::kBlend, true);
-   state_table->Enable(ion::gfx::StateTable::kCullFace, false);
-   state_table->SetBlendFunctions(ion::gfx::StateTable::kOne,
-                                  ion::gfx::StateTable::kOneMinusSrcColor,
-                                  ion::gfx::StateTable::kOne,
-                                  ion::gfx::StateTable::kOneMinusSrcAlpha);
+   state_table->Enable(StateTable::kMultisample, true);
+   state_table->Enable(StateTable::kDepthTest, true);
+   state_table->Enable(StateTable::kBlend, true);
+   state_table->Enable(StateTable::kCullFace, true);
+   state_table->SetBlendFunctions(StateTable::kOne,
+                                  StateTable::kSrcAlpha,
+                                  StateTable::kOne,
+                                  StateTable::kOneMinusSrcAlpha);
    m_Root->SetStateTable(state_table);
 
    //Create the camera, this will create a uniform block to use
@@ -51,7 +52,7 @@ SceneBase::SceneBase():
    //Set the root viewport uniform
    m_Root->AddUniformBlock(m_Camera->GetViewportUniforms());
 
-   InitRemoteHandlers(std::vector<NodePtr>(1, m_Root));
+   InitRemoteHandlers(vector<NodePtr>(1, m_Root));
 }
 
 SceneBase::~SceneBase() {}
@@ -68,7 +69,7 @@ void SceneBase::Render()
    m_Frame->End();
 }
 
-void SceneBase::InitRemoteHandlers(const std::vector<ion::gfx::NodePtr>& nodes_to_track)
+void SceneBase::InitRemoteHandlers(const vector<NodePtr>& nodes_to_track)
 {
 #ifndef ION_PRODUCTION
 

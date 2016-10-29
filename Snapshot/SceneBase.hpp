@@ -1,6 +1,8 @@
 #pragma once
 
 #include "IonFwd.h"
+#include "ion/math/vector.h"
+#include "ion/math/angle.h"
 
 class Camera;
 

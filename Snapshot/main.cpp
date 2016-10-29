@@ -6,6 +6,13 @@
 #include <GLFW/glfw3.h>
 #include "Window.hpp"
 #include <vector>
+#include "FinalAction.hpp"
+#include "ion/base/staticsafedeclare.h"
+
+using namespace Snapshot::Util;
+
+ion::port::Mutex s_WindowMutex;
+
 
 static void exit_callback();
 static void error_callback(int error, const char* description);
@@ -18,7 +25,7 @@ static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 static void drop_callback(GLFWwindow* window, int count, const char** paths);
 static void window_refresh_callback(GLFWwindow* window);
 
-Snapshot::Window * _Window = nullptr;
+static Snapshot::Window * _Window = nullptr;
 
 void SetCallbacks(Snapshot::Window * window)
 {
@@ -50,6 +57,19 @@ int main()
 
    try
    {
+      finally windowDeleter([&]() {
+
+         //Make sure the window is destroyed first
+         ion::base::LockGuard guard(&s_WindowMutex);
+
+         //Clean up the window resources
+         if (_Window)
+         {
+            delete _Window;
+            _Window = nullptr;
+         }
+      });
+
       //Create the window, this initializes the necessary glfw resources
       _Window = new Snapshot::Window(640, 480, "Snapshot Tool");
 
@@ -71,24 +91,19 @@ int main()
          glfwWaitEvents();
       }
 
-      exit(EXIT_SUCCESS);
    }
    catch(std::exception)
    {
       exit(EXIT_FAILURE);
    }
 
-   return 0;
+   exit(EXIT_SUCCESS);
 }
 
 void exit_callback()
 {
-   //Clean up the window resources
-   if (_Window)
-   {
-      delete _Window;
-      _Window = nullptr;
-   }
+   //Make sure the window is destroyed first
+   ion::base::LockGuard guard(&s_WindowMutex);
 
    glfwTerminate();
 }

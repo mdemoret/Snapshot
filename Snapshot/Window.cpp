@@ -22,9 +22,6 @@ using namespace ion::math;
 namespace Snapshot{
 
 Window::Window(uint32_t width, uint32_t height, const string& title) :
-   m_CameraRA(Angled::FromDegrees(0.0)),
-   m_CameraDEC(Angled::FromDegrees(0.0)),
-   m_CameraRadius(Vector1d(4.0)),
    m_MouseDownButton(0),
    m_MouseLastPos(Point2d::Zero())
 {
@@ -100,37 +97,12 @@ void Window::ProcessMouseMove(const Point2d& pos)
       if ((m_MouseDownButton & GetButtonValue(GLFW_MOUSE_BUTTON_LEFT)) > 0)
       {
          delta *= 0.1;
-         m_CameraRA -= Angled::FromDegrees(delta[0]);
-         m_CameraDEC += Angled::FromDegrees(delta[1]);
-         //m_NativeWindow->DeltaViewpoint(dx * -0.1f, dy * 0.1f, 0.0f);
+         m_Scene->GetCamera()->DeltaViewpoint(-Angled::FromDegrees(delta[0]), Angled::FromDegrees(delta[1]), Vector1d::Zero());
       }
       else if ((m_MouseDownButton & GetButtonValue(GLFW_MOUSE_BUTTON_RIGHT)) > 0)
       {
-         m_CameraRadius *= 1.0f + delta[1] * 0.005;
-         //m_NativeWindow->MultViewpoint(1.0f, 1.0f, 1.0f + dy * 0.005f);
+         m_Scene->GetCamera()->ScaleViewpoint(1.0, 1.0, 1.0f + delta[1] * 0.005);
       }
-
-      while (m_CameraRA >= Angled::FromDegrees(360.0))
-         m_CameraRA -= Angled::FromDegrees(360.0);
-      while (m_CameraRA < Angled::FromDegrees(0.0))
-         m_CameraRA += Angled::FromDegrees(360.0);
-
-      while (m_CameraDEC <= Angled::FromDegrees(-180.0))
-         m_CameraDEC += Angled::FromDegrees(360.0);
-      while (m_CameraDEC > Angled::FromDegrees(180.0))
-         m_CameraDEC -= Angled::FromDegrees(360.0);
-
-      if (m_CameraRadius[0] < 1e-6)
-         m_CameraRadius[0] = 1e-6f;
-
-      if (m_CameraRadius[0] > 1e12)
-         m_CameraRadius[0] = 1e12f;
-
-      //Finally, convert the RA/DEC/Radius to Camera position and look at
-      Point3d camPos = m_CameraRadius[0] * Point3d(Cosine(m_CameraRA) * Cosine(m_CameraDEC), Sine(m_CameraRA) * Cosine(m_CameraDEC), Sine(m_CameraDEC));
-      Vector3d camUp = Vector3d(-Cosine(m_CameraRA) * Sine(m_CameraDEC), -Sine(m_CameraRA) * Sine(m_CameraDEC), Cosine(m_CameraDEC));
-
-      m_Scene->GetCamera()->LookAt(camPos, Point3d::Zero(), camUp);
    }
 
    //Save off previous version

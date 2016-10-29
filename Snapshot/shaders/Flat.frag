@@ -14,19 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 
 */
-attribute vec3 aVertex;
-attribute vec3 aColor;
 
-uniform mat4 uProjectionMatrix;
-uniform mat4 uModelviewMatrix;
-uniform float uPointSize;
+#ifdef GL_ES
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+#endif
+
+uniform vec4 uBaseColor;
 
 varying vec4 vColor;
 
 void main(void) {
-   gl_Position = uProjectionMatrix * uModelviewMatrix * vec4(aVertex, 1);
-   
-   vColor = vec4(aColor, 1.0);
-
-   gl_PointSize = uPointSize;
+   // final color
+   gl_FragColor = vColor * uBaseColor;
 }

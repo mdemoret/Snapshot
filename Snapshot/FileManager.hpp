@@ -5,6 +5,8 @@
 #include <fstream>
 #include <map>
 #include "ion/math/matrix.h"
+#include "ion/base/notifier.h"
+#include "ion/math/range.h"
 
 class Camera;
 
@@ -21,8 +23,17 @@ public:
 
 struct StateVertex
 {
+public:
+   StateVertex()
+   {}
+
+   StateVertex(const ion::math::Vector3f & pos, const ion::math::Vector3ui8 & color) :
+      Pos(pos),
+      Color(color)
+   {}
+
    ion::math::Vector3f Pos;
-   ion::math::Vector3ui Color;
+   ion::math::Vector3ui8 Color;
 };
 
 class SnapshotData
@@ -32,17 +43,22 @@ public:
    virtual ~SnapshotData();
 
    double GetEpoch() const;
+   const ion::math::Range3f & GetBounds() const;
 
    std::vector<StateVertex> GetDiffData(uint16_t state1Id, uint16_t state2Id) const;
 
 private:
+   std::vector<StateVertex> Calculate1to1(const std::vector<State> & left, const std::vector<State> & right, float hbr) const;
+   std::vector<StateVertex> CalculateAtoA(const std::vector<State> & left, const std::vector<State> & right, float hbr) const;
+
    static ion::math::Matrix3d CalcVNB(const State & origin);
 
    double m_Epoch;
    std::map<uint16_t, std::vector<State>> m_StateData;
+   mutable ion::math::Range3f m_DifferenceBounds;
 };
 
-class FileManager
+class FileManager : public ion::base::Notifier
 {
 public:
    FileManager();
@@ -52,7 +68,7 @@ public:
 
    bool LoadFiles(const std::vector<std::string>& files);
 
-   ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> GetData(size_t epochIndex, uint16_t state1Id, uint16_t state2Id, const ion::base::AllocatorPtr& container_allocator);
+   ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> GetData(size_t epochIndex, uint16_t state1Id, uint16_t state2Id, ion::math::Range3f & bounds);
 
 protected:
    
