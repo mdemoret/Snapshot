@@ -126,10 +126,10 @@ NodePtr BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderManager)
 
    vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector3ui8(255, 0, 0)));
    vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector3ui8(255, 0, 0)));
-                                                            
+
    vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector3ui8(0, 255, 0)));
    vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector3ui8(0, 255, 0)));
-                                                            
+
    vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector3ui8(0, 0, 255)));
    vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector3ui8(0, 0, 255)));
 
@@ -261,47 +261,48 @@ NodePtr Scene::BuildWorldSceneGraph()
    hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_WORLD_LIGHTSPECULAR, Vector3f(.1f, .1f, .1f)));
    hbr->AddUniform(worldRegistry->Create<Uniform>(UNIFORM_WORLD_LIGHTSPECULARINTENSITY, 16.0f));
 
-   m_HardBodyRadius.RegisterListener("UpdateHBRShape", [hbr](SettingBase* setting) {
-      
-      float newHBR = dynamic_cast<Setting<float>*>(setting)->GetValue() / 1000.0f;
+   m_HardBodyRadius.RegisterListener("UpdateHBRShape", [hbr](SettingBase* setting)
+                                     {
+                                        float newHBR = dynamic_cast<Setting<float>*>(setting)->GetValue() / 1000.0f;
 
-      auto modelMat = ScaleMatrixH(Vector3f::Fill(newHBR));
+                                        auto modelMat = ScaleMatrixH(Vector3f::Fill(newHBR));
 
-      auto normalMat = Transpose(Inverse(NonhomogeneousSubmatrixH(modelMat)));
+                                        auto normalMat = Transpose(Inverse(NonhomogeneousSubmatrixH(modelMat)));
 
-      hbr->SetUniformByName(UNIFORM_GLOBAL_MODELVIEWMATRIX, modelMat);
-      hbr->SetUniformByName(UNIFORM_COMMON_MODELMATRIX, modelMat);
-      hbr->SetUniformByName(UNIFORM_COMMON_NORMALMATRIX, normalMat);
-   });
+                                        hbr->SetUniformByName(UNIFORM_GLOBAL_MODELVIEWMATRIX, modelMat);
+                                        hbr->SetUniformByName(UNIFORM_COMMON_MODELMATRIX, modelMat);
+                                        hbr->SetUniformByName(UNIFORM_COMMON_NORMALMATRIX, normalMat);
+                                     });
 
-   ShaderInputRegistryPtr wireframeRegistry = ShaderInputRegistryPtr(new ShaderInputRegistry);
-   wireframeRegistry->Include(phongRegistry);
+   //ShaderInputRegistryPtr wireframeRegistry = ShaderInputRegistryPtr(new ShaderInputRegistry);
+   //wireframeRegistry->Include(phongRegistry);
 
-   wireframeRegistry->Add(ShaderInputRegistry::UniformSpec(UNIFORM_COMMON_MODELMATRIX, kMatrix4x4Uniform, "The model matrix transformation for the object", [&](const Uniform & oldValue, const Uniform & newValue) {
-      const VectorBase4f & c0 = oldValue.GetValue<VectorBase4f>();
-      const VectorBase4f & c1 = newValue.GetValue<VectorBase4f>();
+   //wireframeRegistry->Add(ShaderInputRegistry::UniformSpec(UNIFORM_GLOBAL_BASECOLOR, kFloatVector4Uniform, "The model matrix transformation for the object", [&](const Uniform & oldValue, const Uniform & newValue) {
+   //   const VectorBase4f & c0 = oldValue.GetValue<VectorBase4f>();
+   //   const VectorBase4f & c1 = newValue.GetValue<VectorBase4f>();
 
-      //Override the alpha channel
-      Uniform result = oldValue;
+   //   //Override the alpha channel
+   //   Uniform result = oldValue;
 
-      result.SetValue(Vector4f(c0[0], c0[1], c0[2], c1[3]));
-      return result;
-   }));
+   //   result.SetValue(Vector4f(c0[0], c0[1], c0[2], c1[3]));
+   //   return result;
+   //}));
 
-   ShaderProgramPtr flatShader = GetShaderManager()->CreateShaderProgram("FlatOverrideAlpha",
-                                                                          wireframeRegistry,
-                                                                          ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.vert", false)),
-                                                                          ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.frag", false)));
+   ShaderProgramPtr flatShader = GetShaderManager()->CreateShaderProgram("Flat",
+                                                                         ShaderInputRegistry::GetGlobalRegistry(),
+                                                                         ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.vert", false)),
+                                                                         ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.frag", false)));
 
    wireHbr->SetShaderProgram(flatShader);
 
-   wireHbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_GLOBAL_BASECOLOR, Vector4f(0, 0, 0, 1.0f)));
+   wireHbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_GLOBAL_BASECOLOR, Vector4f(.222f, .4609f, .156f, 1.0f)));
 
 
-   StateTablePtr hbrTable(new StateTable());
-   hbrTable->SetDepthWriteMask(false);
+   StateTablePtr hbrSolidTable(new StateTable());
+   hbrSolidTable->SetDepthWriteMask(false);
 
-   hbr->SetStateTable(hbrTable);
+   solidHbr->SetStateTable(hbrSolidTable);
+   solidHbr->Enable(false);
 
    world->AddChild(hbr);
 
