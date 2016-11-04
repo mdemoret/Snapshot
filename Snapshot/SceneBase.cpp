@@ -12,6 +12,7 @@
 #include "ion/remote/shaderhandler.h"
 #include "ion/remote/tracinghandler.h"
 #include "ion/remote/remoteserver.h"
+#include "ion/text/fontmanager.h"
 
 using namespace ion::gfx;
 using namespace ion::gfxutils;
@@ -23,7 +24,8 @@ SceneBase::SceneBase():
    m_Frame(new Frame),
    m_GraphicsManager(new GraphicsManager()),
    m_Renderer(new Renderer(m_GraphicsManager)),
-   m_ShaderManager(new ShaderManager())
+   m_ShaderManager(new ShaderManager()),
+   m_FontManager(new ion::text::FontManager())
 {
    GetGraphicsManager()->EnableErrorChecking(true);
 
@@ -34,16 +36,17 @@ SceneBase::SceneBase():
    StateTablePtr state_table(new StateTable(800, 600));
    //state_table->SetViewport(
    //   Range2i::BuildWithSize(Point2i(0, 0), Vector2i(width, height)));
-   state_table->SetClearColor(Vector4f(0.05f, 0.05f, 0.05f, 1.0f));
-   state_table->SetClearDepthValue(1.f);
+   state_table->SetClearColor(Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
+   state_table->SetClearDepthValue(1.0f);
+   state_table->SetDepthFunction(StateTable::kDepthLessOrEqual);
    state_table->Enable(StateTable::kMultisample, true);
    state_table->Enable(StateTable::kDepthTest, true);
    state_table->Enable(StateTable::kBlend, true);
    state_table->Enable(StateTable::kCullFace, true);
-   state_table->SetBlendFunctions(StateTable::kOne,
-                                  StateTable::kSrcAlpha,
+   state_table->SetBlendFunctions(StateTable::kSrcAlpha,
+                                  StateTable::kOneMinusSrcAlpha,
                                   StateTable::kOne,
-                                  StateTable::kOneMinusSrcAlpha);
+                                  StateTable::kZero);
    m_Root->SetStateTable(state_table);
 
    //Create the camera, this will create a uniform block to use

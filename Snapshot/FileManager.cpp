@@ -54,9 +54,9 @@ vector<StateVertex> SnapshotData::Calculate1to1(const vector<State>& left, const
       vertex.Pos = Vector3f(leftVNB);
 
       if (Length(vertex.Pos) < hbr)
-         vertex.Color = Vector3ui8(255, 0, 0);
+         vertex.Color = Vector4ui8(255, 0, 0, 255);
       else
-         vertex.Color = Vector3ui8::Fill(255);
+         vertex.Color = Vector4ui8(0, 0, 255, 100);
 
       vertices.push_back(vertex);
    }
@@ -125,9 +125,9 @@ vector<StateVertex> SnapshotData::CalculateAtoA(const vector<State>& left, const
             vertex.Pos = Vector3f(xIter->first, yIter->first, zIter->first);
 
             if (Length(vertex.Pos) < hbr)
-               vertex.Color = Vector3ui8(255, 0, 0);
+               vertex.Color = Vector4ui8(255, 0, 0, 255);
             else
-               vertex.Color = Vector3ui8::Fill(255);
+               vertex.Color = Vector4ui8(0, 0, 255, 100);
 
             //vertex.Color = Vector3ui8::Fill(static_cast<uint8_t>(static_cast<double>(zIter->second * 255) / static_cast<double>(maxBin)));
 

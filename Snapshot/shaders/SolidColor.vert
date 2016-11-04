@@ -15,18 +15,10 @@ limitations under the License.
 
 */
 attribute vec3 aVertex;
-attribute vec4 aColor;
 
 uniform mat4 uProjectionMatrix;
 uniform mat4 uModelviewMatrix;
-uniform float uPointSize;
-
-varying vec4 vColor;
 
 void main(void) {
    gl_Position = uProjectionMatrix * uModelviewMatrix * vec4(aVertex, 1);
-   
-   vColor = aColor;
-
-   gl_PointSize = uPointSize;
 }

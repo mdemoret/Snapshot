@@ -7,6 +7,8 @@
     <file name="Point.vert">shaders/Point.vert</file>
     <file name="Phong.frag">shaders/Phong.frag</file>
     <file name="Phong.vert">shaders/Phong.vert</file>
+    <file name="SolidColor.frag">shaders/SolidColor.frag</file>
+    <file name="SolidColor.vert">shaders/SolidColor.vert</file>
   </assets>
   <assets>
     <file name="Hud.ttf">third_party/webfonts/ufl/ubuntu/Ubuntu-Regular.ttf</file>

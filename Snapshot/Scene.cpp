@@ -15,6 +15,8 @@
 #include "ion/base/zipassetmanager.h"
 #include "ion/math/transformutils.h"
 #include "ion/math/matrixutils.h"
+#include "ion/demos/utils.h"
+#include "ion/text/outlinebuilder.h"
 
 // Resources for the HUD.
 ION_REGISTER_ASSETS(SnapshotAssets);
@@ -22,6 +24,7 @@ ION_REGISTER_ASSETS(SnapshotAssets);
 using namespace ion::gfx;
 using namespace ion::math;
 using namespace ion::base;
+using namespace ion::text;
 
 namespace Snapshot{
 
@@ -113,7 +116,7 @@ void Scene::RenderFrame()
    GetRenderer()->DrawScene(GetRoot());
 }
 
-NodePtr BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderManager)
+NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderManager)
 {
    //Now create the particles
    AttributeArrayPtr attribute_array(new AttributeArray);
@@ -124,14 +127,14 @@ NodePtr BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderManager)
 
    auto& vector = *container->GetMutableVector();
 
-   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector3ui8(255, 0, 0)));
-   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector3ui8(255, 0, 0)));
+   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(255, 0, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
 
-   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector3ui8(0, 255, 0)));
-   vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector3ui8(0, 255, 0)));
+   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(0, 255, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector4ui8(0, 255, 0, 255)));
 
-   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector3ui8(0, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector3ui8(0, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(0, 0, 255, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector4ui8(0, 0, 255, 255)));
 
 
    buffer->SetData(container, sizeof(StateVertex), container->GetVector().size(), BufferObject::kStaticDraw);
@@ -164,6 +167,87 @@ NodePtr BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderManager)
 
    node->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_BASECOLOR, Vector4f(1.0f, 1.0f, 1.0f, 1.0f)));
    //node->Enable(false);
+
+   //Now add the text nodes
+   auto font = demoutils::InitFont(GetFontManager(), "Hud", 20U, 8U);
+
+   ion::text::FontImagePtr font_image = GetFontManager()->GetCachedFontImage("Axes");
+
+   if (!font_image.Get())
+   {
+      ion::text::GlyphSet glyph_set(ion::base::AllocatorPtr(NULL));
+      font->AddGlyphsForAsciiCharacterRange('V', 'V', &glyph_set);
+      font->AddGlyphsForAsciiCharacterRange('N', 'N', &glyph_set);
+      font->AddGlyphsForAsciiCharacterRange('B', 'B', &glyph_set);
+
+      StaticFontImagePtr sfi(new StaticFontImage(font, 256U, glyph_set));
+      if (!sfi->GetImageData().texture.Get())
+      {
+         LOG(ERROR) << "Unable to create HUD FontImage";
+      }
+      else
+      {
+         GetFontManager()->CacheFontImage("Axes", sfi);
+         font_image = sfi;
+      }
+   }
+
+   LayoutOptions region;
+   region.target_point = Point2f(1.0f, 0.02f);
+   region.target_size = Vector2f(0.0f, 0.1f);
+   region.horizontal_alignment = ion::text::HorizontalAlignment::kAlignRight;
+
+   OutlineBuilderPtr vBuilder(new OutlineBuilder(font_image, GetShaderManager(), ion::base::AllocatorPtr()));
+
+   if (vBuilder->Build(font_image->GetFont()->BuildLayout("V", region), ion::gfx::BufferObject::kStaticDraw))
+   {
+      //Must set the color after building
+      vBuilder->SetTextColor(Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
+      vBuilder->SetOutlineColor(Vector4f(0.2f, 0.2f, 0.2f, 1.0f));
+      vBuilder->SetOutlineWidth(1.0f);
+
+      auto tNode = vBuilder->GetNode();
+
+      node->AddChild(tNode);
+   }
+
+   OutlineBuilderPtr nBuilder(new OutlineBuilder(font_image, GetShaderManager(), ion::base::AllocatorPtr()));
+
+   if (nBuilder->Build(font_image->GetFont()->BuildLayout("N", region), ion::gfx::BufferObject::kStaticDraw))
+   {
+      //Must set the color after building
+      nBuilder->SetTextColor(Vector4f(0.0f, 1.0f, 0.0f, 1.0f));
+      nBuilder->SetOutlineColor(Vector4f(0.2f, 0.2f, 0.2f, 1.0f));
+      nBuilder->SetOutlineWidth(1.0f);
+
+      auto tNode = nBuilder->GetNode();
+
+      auto mat = ion::math::RotationMatrixAxisAngleH(Vector3f(-1.0f, 0.0f, 0.0f), Anglef::FromDegrees(-90.0f));
+      mat = ion::math::RotationMatrixAxisAngleH(Vector3f(0.0f, 0.0f, 1.0f), Anglef::FromDegrees(90.0f)) * mat;
+
+      tNode->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_MODELVIEWMATRIX, mat));
+
+      node->AddChild(tNode);
+   }
+
+   OutlineBuilderPtr bBuilder(new OutlineBuilder(font_image, GetShaderManager(), ion::base::AllocatorPtr()));
+
+   if (bBuilder->Build(font_image->GetFont()->BuildLayout("B", region), ion::gfx::BufferObject::kStaticDraw))
+   {
+      //Must set the color after building
+      bBuilder->SetTextColor(Vector4f(0.0f, 0.0f, 1.0f, 1.0f));
+      bBuilder->SetOutlineColor(Vector4f(0.2f, 0.2f, 0.2f, 1.0f));
+      bBuilder->SetOutlineWidth(1.0f);
+
+      auto tNode = bBuilder->GetNode();
+
+      auto mat = ion::math::RotationMatrixAxisAngleH(Vector3f(-1.0f, 0.0f, 0.0f), Anglef::FromDegrees(90.0f));
+      mat = ion::math::RotationMatrixAxisAngleH(Vector3f(0.0f, 1.0f, 0.0f), Anglef::FromDegrees(-90.0f)) * mat;
+
+      tNode->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_MODELVIEWMATRIX, mat));
+
+      node->AddChild(tNode);
+   }
 
    return node;
 }
@@ -223,7 +307,9 @@ NodePtr Scene::BuildWorldSceneGraph()
 
    solidHbr->AddShape(BuildEllipsoidShape(ellipsoid_spec));
 
-   ellipsoid_spec.vertex_type = ion::gfxutils::ShapeSpec::kPosition;
+   ellipsoid_spec.band_count = 36;
+   ellipsoid_spec.sector_count = 18;
+   //ellipsoid_spec.vertex_type = ion::gfxutils::ShapeSpec::kPosition;
 
    auto wireframeHBRShape = BuildEllipsoidShape(ellipsoid_spec);
    //wireframeHBR->SetAttributeArray(tri_shape->GetAttributeArray());
@@ -249,7 +335,7 @@ NodePtr Scene::BuildWorldSceneGraph()
 
    hbr->SetShaderProgram(phongShader);
 
-   auto modelMat = ScaleMatrixH(Vector3f::Fill(m_HardBodyRadius.GetValue() / 1000.0f));
+   auto modelMat = ScaleMatrixH(Vector3f::Fill(2.0f * m_HardBodyRadius.GetValue() / 1000.0f));
 
    auto normalMat = Transpose(Inverse(NonhomogeneousSubmatrixH(modelMat)));
 
@@ -257,7 +343,8 @@ NodePtr Scene::BuildWorldSceneGraph()
    hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_GLOBAL_MODELVIEWMATRIX, modelMat));
    hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_COMMON_MODELMATRIX, modelMat));
    hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_COMMON_NORMALMATRIX, normalMat));
-   hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_WORLD_LIGHTAMBIENT, Vector3f(.4f, .4f, .4f)));
+   hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_WORLD_LIGHTAMBIENT, Vector3f(.8f, .8f, .8f)));
+   hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_WORLD_LIGHTDIFFUSE, Vector3f(.5f, .5f, .5f)));
    hbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_WORLD_LIGHTSPECULAR, Vector3f(.1f, .1f, .1f)));
    hbr->AddUniform(worldRegistry->Create<Uniform>(UNIFORM_WORLD_LIGHTSPECULARINTENSITY, 16.0f));
 
@@ -265,7 +352,7 @@ NodePtr Scene::BuildWorldSceneGraph()
                                      {
                                         float newHBR = dynamic_cast<Setting<float>*>(setting)->GetValue() / 1000.0f;
 
-                                        auto modelMat = ScaleMatrixH(Vector3f::Fill(newHBR));
+                                        auto modelMat = ScaleMatrixH(Vector3f::Fill(2.0f * newHBR));
 
                                         auto normalMat = Transpose(Inverse(NonhomogeneousSubmatrixH(modelMat)));
 
@@ -288,21 +375,16 @@ NodePtr Scene::BuildWorldSceneGraph()
    //   return result;
    //}));
 
-   ShaderProgramPtr flatShader = GetShaderManager()->CreateShaderProgram("Flat",
-                                                                         ShaderInputRegistry::GetGlobalRegistry(),
-                                                                         ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.vert", false)),
-                                                                         ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.frag", false)));
+   wireHbr->SetShaderProgram(phongShader);
 
-   wireHbr->SetShaderProgram(flatShader);
-
-   wireHbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_GLOBAL_BASECOLOR, Vector4f(.222f, .4609f, .156f, 1.0f)));
+   wireHbr->AddUniform(phongRegistry->Create<Uniform>(UNIFORM_GLOBAL_BASECOLOR, Vector4f::Fill(0.1f) + Vector4f(.222f, .4609f, .156f, 0.5f)));
 
 
    StateTablePtr hbrSolidTable(new StateTable());
    hbrSolidTable->SetDepthWriteMask(false);
 
    solidHbr->SetStateTable(hbrSolidTable);
-   solidHbr->Enable(false);
+   //solidHbr->Enable(false);
 
    world->AddChild(hbr);
 
@@ -337,10 +419,10 @@ NodePtr Scene::BuildWorldSceneGraph()
    m_PointsNode->AddUniform(pointsRegistry->Create<Uniform>("uPointSize", 3.0f));
    m_PointsNode->Enable(false);
 
-   StateTablePtr pointsTable(new StateTable());
+   //StateTablePtr pointsTable(new StateTable());
    //pointsTable->Enable(StateTable::kMultisample, false);
 
-   m_PointsNode->SetStateTable(pointsTable);
+   //m_PointsNode->SetStateTable(pointsTable);
 
    world->AddChild(m_PointsNode);
 
@@ -351,12 +433,12 @@ NodePtr Scene::BuildWorldSceneGraph()
 
 NodePtr Scene::BuildHudSceneGraph()
 {
-   m_Hud = std::make_shared<Hud>(ion::text::FontManagerPtr(new ion::text::FontManager), GetShaderManager(), GetCamera()->GetViewportUniforms());
+   m_Hud = std::make_shared<Hud>(GetFontManager(), GetShaderManager(), GetCamera()->GetViewportUniforms());
 
    m_Hud->AddHudItem(std::make_shared<HudItem>("BFMC Snapshot"));
    m_Hud->AddHudItem(std::make_shared<HudItem>("@ 12/09/2016 08:58:27.379"));
    m_Hud->AddHudItem(std::make_shared<HudItem>("Pc = 5.4e-04"));
-   m_Hud->AddHudItem(std::make_shared<HudItem>("RTm1A (Origin) RTm4A"));
+   m_Hud->AddHudItem(std::make_shared<HudItem>("HBR = 120 m"));
 
    m_Hud->GetRootNode()->SetLabel("HUD");
 

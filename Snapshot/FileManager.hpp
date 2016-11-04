@@ -27,13 +27,13 @@ public:
    StateVertex()
    {}
 
-   StateVertex(const ion::math::Vector3f & pos, const ion::math::Vector3ui8 & color) :
+   StateVertex(const ion::math::Vector3f & pos, const ion::math::Vector4ui8 & color) :
       Pos(pos),
       Color(color)
    {}
 
    ion::math::Vector3f Pos;
-   ion::math::Vector3ui8 Color;
+   ion::math::Vector4ui8 Color;
 };
 
 class SnapshotData

@@ -15,7 +15,7 @@ limitations under the License.
 
 */
 attribute vec3 aVertex;
-attribute vec3 aColor;
+attribute vec4 aColor;
 
 uniform mat4 uProjectionMatrix;
 uniform mat4 uModelviewMatrix;
@@ -25,5 +25,5 @@ varying vec4 vColor;
 void main(void) {
    gl_Position = uProjectionMatrix * uModelviewMatrix * vec4(aVertex, 1);
    
-   vColor = vec4(aColor, 1.0);
+   vColor = aColor;
 }

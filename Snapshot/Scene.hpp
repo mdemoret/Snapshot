@@ -18,6 +18,8 @@ public:
    virtual void Update() override;
 
 protected:
+   ion::gfx::NodePtr BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderManager);
+
    void LoadInputFiles(ion::base::SettingBase* setting);
    void ReloadPointData();
 

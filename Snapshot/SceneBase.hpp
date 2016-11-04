@@ -31,6 +31,9 @@ protected:
    // Returns the ShaderManager set up by the constructor.
    const ion::gfxutils::ShaderManagerPtr& GetShaderManager() const;
 
+   // Returns the FontManager set up by the constructor.
+   const ion::text::FontManagerPtr& GetFontManager() const;
+
    const ion::gfx::NodePtr& GetRoot() const;
 
    virtual void RenderFrame() = 0;
@@ -53,6 +56,7 @@ private:
    ion::gfx::GraphicsManagerPtr m_GraphicsManager;
    ion::gfx::RendererPtr m_Renderer;
    ion::gfxutils::ShaderManagerPtr m_ShaderManager;
+   ion::text::FontManagerPtr m_FontManager;
 };
 
 inline const ion::base::SharedPtr<ion::gfxutils::Frame>& SceneBase::GetFrame() const { return m_Frame; }
@@ -62,6 +66,8 @@ inline const ion::base::SharedPtr<ion::gfx::GraphicsManager>& SceneBase::GetGrap
 inline const ion::base::SharedPtr<ion::gfx::Renderer>& SceneBase::GetRenderer() const { return m_Renderer; }
 
 inline const ion::base::SharedPtr<ion::gfxutils::ShaderManager>& SceneBase::GetShaderManager() const { return m_ShaderManager; }
+
+inline const ion::text::FontManagerPtr& SceneBase::GetFontManager() const { return m_FontManager; }
 
 inline const std::shared_ptr<Camera>& SceneBase::GetCamera() const { return m_Camera; }
 

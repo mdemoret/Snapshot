@@ -39,5 +39,5 @@ void main(void) {
     float delta = fwidth(r);
     float alpha = 1.0 - smoothstep(1.0 - delta, 1.0 + delta, r);
 
-    gl_FragColor = vec4(vColor.rgb * alpha, alpha);
+    gl_FragColor = vec4(vColor.rgb, alpha * vColor.a);
 }

@@ -120,10 +120,14 @@ size_t Hud::AddHudItem(const HudItemPtr& item)
       string text = item->GetText();
 
       BasicBuilderPtr builder(new BasicBuilder(font_image, m_ShaderManager, ion::base::AllocatorPtr()));
+
       const Layout layout = font_image->GetFont()->BuildLayout(text, region);
 
       if (builder->Build(layout, ion::gfx::BufferObject::kStreamDraw))
       {
+         //Must set the color after building
+         builder->SetTextColor(Vector4f(0.0f, 0.0f, 0.0f, 1.0f));
+
          TextSpec text_spec;
          text_spec.region = region;
          text_spec.text = text;

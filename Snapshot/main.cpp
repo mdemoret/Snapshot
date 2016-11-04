@@ -54,6 +54,8 @@ int main()
 
    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+   glfwWindowHint(GLFW_DEPTH_BITS, 32);
+   glfwWindowHint(GLFW_STENCIL_BITS, 0);
 
    try
    {
@@ -91,6 +93,7 @@ int main()
          glfwWaitEvents();
       }
 
+      glfwMakeContextCurrent(_Window->GetGlfwPtr());
    }
    catch(std::exception)
    {

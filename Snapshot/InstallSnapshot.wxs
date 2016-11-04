@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+   <Product Id="36FF0A1D-149B-43AE-A0E4-E233C0F17D85" Name="Snapshot" Language="1033" Version="1.0.1.0" Manufacturer="a.i. Solutions" UpgradeCode="E7676353-FB44-4083-8C9A-0ABEEBCDCAB7">
+      <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+      <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+
+      <MajorUpgrade DowngradeErrorMessage="A newer version of Snapshot is already installed." />
+      <MediaTemplate EmbedCab="yes"/>
+
+      <Feature Id="ProductFeature" Title="Snapshot" Level="1">
+         <ComponentRef Id="ProgramMenu_Component" />
+         <ComponentGroupRef Id="ProductComponents" />
+      </Feature>
+
+      <UIRef Id="WixUI_InstallDir" />
+
+      <Icon Id="Snapshot_Icon.exe" SourceFile="$(var.Snapshot_windows.TargetPath)" />
+   </Product>
+
+   <Fragment>
+      <Directory Id="TARGETDIR" Name="SourceDir">
+         <Directory Id="ProgramFiles64Folder">
+            <Directory Id="INSTALLDIR_Parent" Name="a.i. Solutions, Inc">
+               <Directory Id="INSTALLDIR" Name="Snapshot" />
+            </Directory>
+         </Directory>
+
+         <Directory Id="ProgramMenuFolder">
+            <Directory Id="ProgramMenu_Dir" Name="Snapshot"/>
+         </Directory>
+
+      </Directory>
+   </Fragment>
+   
+   <Fragment>
+      <DirectoryRef Id="ProgramMenu_Dir">
+         <Component Id="ProgramMenu_Component" Guid="{73DA79A9-408E-43BB-9F5E-28FA82CBAB52}">
+            <Shortcut Id="ProgramMenu_Snapshot_Shortcut"
+                      Name="Snapshot"
+                      Description="Snapshot Tool"
+                      Target="[#MainExe_File]"
+                      WorkingDirectory="INSTALLDIR"
+                      Icon="Snapshot_Icon.exe"/>
+            <Shortcut Id="ProgramMenu_Uninstall_Shortcut"
+                      Name="Uninstall"
+                      Description="Uninstalls Snapshot Tool"
+                      Target="[System64Folder]msiexec.exe"
+                      Arguments="/x [ProductCode]"/>
+            <RemoveFolder Id="ProgramMenu_Dir" On="uninstall"/>
+            <RegistryValue Root="HKCU" Key="Software\a.i. Solutions\Snapshot" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+         </Component>
+      </DirectoryRef>
+   </Fragment>
+
+   <Fragment>
+      <ComponentGroup Id="ProductComponents" Directory="INSTALLDIR">
+         <Component Id='MainExe_Component' Guid='7E77BC4F-3B5B-44F6-AB38-3A4DFAC6D8C9'>
+            <File Id='MainExe_File' Name='Snapshot.exe' DiskId='1' Source='$(var.Snapshot_windows.TargetPath)' KeyPath='yes' />
+            <ProgId Id='Ext_ProgId' Description='Snapshot data file' Icon='MainExe_File'>
+               <Extension Id='snap' ContentType='application/snap'>
+                  <Verb Id='open' Command='Open' TargetFile='MainExe_File' Argument='"%1"' />
+               </Extension>
+            </ProgId>
+         </Component>
+      </ComponentGroup>
+   </Fragment>
+</Wix>
