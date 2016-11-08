@@ -43,11 +43,19 @@ void SetCallbacks(Snapshot::Window * window)
    glfwSetWindowRefreshCallback(windowPtr, window_refresh_callback);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
    std::atexit(exit_callback);
 
    glfwSetErrorCallback(error_callback);
+
+   //Load all of the arguments into a vector of strings
+   std::vector<std::string> arguments;
+
+   for (size_t i = 1; i < argc; i++)
+   {
+      arguments.push_back(argv[i]);
+   }
 
    if (!glfwInit())
       exit(EXIT_FAILURE);
@@ -79,6 +87,10 @@ int main()
       
       glfwSwapInterval(1); //Indicates that SwapBuffers should be called no more than once per frame
       glfwWaitEventsTimeout(1.0); //Specifies that we will update once per second to keep things alive but not burn CPU
+
+      //Initialize the settings
+      if (arguments.size() > 0)
+         _Window->ProcessFileDrop(arguments);
 
       //Main Loop
       while (!glfwWindowShouldClose(_Window->GetGlfwPtr()))

@@ -8,9 +8,10 @@
 class HudItem
 {
 public:
-   HudItem(const std::string & startString);
+   explicit HudItem(const std::string & startString);
 
-   std::string GetText();
+   void SetText(const std::string & text);
+   std::string GetText() const;
 
 private:
    std::string m_Text;

@@ -97,7 +97,7 @@ static float ComputeLineWidth(const FreeTypeFont& font,
   return it.GetState() == base::Utf8Iterator::kEndOfString ? x_max : 0.f;
 }
 
-const TextSize ComputeTextSize(const FreeTypeFont& font,
+TextSize ComputeTextSize(const FreeTypeFont& font,
                                const LayoutOptions& options,
                                const Lines& lines) {
   const Font::FontMetrics& font_metrics = font.GetFontMetrics();

@@ -68,7 +68,7 @@ typedef std::vector<std::string> Lines;
 //
 // TODO(bug): ideally can combine this (computing ascent/descent) with
 // the actual layout done by the layout engine to avoid double-work.
-const TextSize ComputeTextSize(const FreeTypeFont& font,
+TextSize ComputeTextSize(const FreeTypeFont& font,
                                const LayoutOptions& options,
                                const Lines& lines);
 

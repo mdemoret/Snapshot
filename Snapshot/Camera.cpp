@@ -16,6 +16,11 @@ static const float MaxVerticalAngle = 85.0f; //must be less than 90 to avoid gim
 
 Camera::Camera(StateTablePtr rootStateTable) :
    m_WindowBounds(Range2ui::BuildWithSize(Point2ui::Zero(), Vector2ui::Fill(100))),
+   m_Scale(Vector3d::Fill(1.0)),
+   m_LookAtCenter(Point3d::Zero()),
+   m_RA(Angled::FromDegrees(0.0)),
+   m_DEC(Angled::FromDegrees(0.0)),
+   m_Radius(Vector1d(4.0)),
    m_PerspectiveProjection(true),
    m_NearPlane(0.01),
    m_FarPlane(100.0),
@@ -29,11 +34,7 @@ Camera::Camera(StateTablePtr rootStateTable) :
    c_ProjectionMatrix(Matrix4d::Identity()),
    c_ViewMatrixDirty(true),
    c_ViewMatrix(Matrix4d::Identity()),
-   m_RootStateTable(rootStateTable),
-   m_LookAtCenter(Point3d::Zero()),
-   m_RA(Angled::FromDegrees(0.0)),
-   m_DEC(Angled::FromDegrees(0.0)),
-   m_Radius(Vector1d(4.0))
+   m_RootStateTable(rootStateTable)
 {
    //Build the uniform block that will always be set by the camera
    m_ViewportUniforms = UniformBlockPtr(new UniformBlock());
@@ -225,22 +226,22 @@ void Camera::SetNearAndFarPlanes(const double nearPlane, const double farPlane)
 //   c_ViewMatrixDirty = true;
 //   c_ViewProjectionMatrixDirty = true;
 //}
-//
-//const Vector3d& Camera::Scale() const
-//{
-//   return m_Scale;
-//}
-//
-//void Camera::SetScale(const Vector3d& scale)
-//{
-//   if (m_Scale == scale)
-//      return;
-//
-//   m_Scale = scale;
-//
-//   c_ViewMatrixDirty = true;
-//   c_ViewProjectionMatrixDirty = true;
-//}
+
+const Vector3d& Camera::Scale() const
+{
+   return m_Scale;
+}
+
+void Camera::SetScale(const Vector3d& scale)
+{
+   if (m_Scale == scale)
+      return;
+
+   m_Scale = scale;
+
+   c_ViewMatrixDirty = true;
+   c_ViewProjectionMatrixDirty = true;
+}
 
 void Camera::SetLookAt(const ion::math::Point3d& lookAtCenter) 
 {
@@ -485,7 +486,7 @@ const Matrix4d& Camera::ViewMatrix() const
 
       //c_ViewMatrix = (RotationMatrixH(Orientation()) * TranslationMatrix(-m_PositionWorld)) * ScaleMatrixH(m_Scale);
 
-      c_ViewMatrix = LookAtMatrixFromCenter(PositionWorld(), m_LookAtCenter, Up());
+      c_ViewMatrix = LookAtMatrixFromCenter(PositionWorld(), m_LookAtCenter, Up()) * ScaleMatrixH(m_Scale);
       c_ViewMatrixDirty = false;
    }
 

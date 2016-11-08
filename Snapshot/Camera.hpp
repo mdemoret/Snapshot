@@ -169,7 +169,7 @@ private:
    ion::math::Range2ui m_WindowBounds; //X, Y, Width, Height
 
    //View Parameters
-   //ion::math::Vector3d m_Scale;
+   ion::math::Vector3d m_Scale;
    //ion::math::Point3d m_PositionWorld;
    //ion::math::Rotationd m_Orientation;
 

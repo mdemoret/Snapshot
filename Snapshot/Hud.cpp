@@ -87,7 +87,12 @@ size_t Hud::AddText(const FontImagePtr& font_image, const LayoutOptions& region,
 HudItem::HudItem(const std::string& startString):
 m_Text(startString){}
 
-std::string HudItem::GetText()
+void HudItem::SetText(const std::string& text) 
+{
+   m_Text = text;
+}
+
+std::string HudItem::GetText() const
 {
    return m_Text;
 }

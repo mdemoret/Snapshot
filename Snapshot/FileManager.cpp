@@ -10,10 +10,54 @@ using namespace ion::math;
 using namespace std;
 
 namespace Snapshot{
-SnapshotData::SnapshotData(double epoch, const map<uint16_t, vector<State>>& stateData) :
-   m_Epoch(epoch),
-   m_StateData(stateData) {}
 
+Range3d CalcStatesRange(const std::vector<State>& states)
+{
+   Range3d bounds(Point3d::Fill(std::numeric_limits<double>::max()), Point3d::Fill(std::numeric_limits<double>::min()));
+
+   for (size_t i = 0; i < states.size(); i++)
+   {
+      bounds.ExtendByPoint(states[i].Pos);
+   }
+
+   return bounds;
+}
+
+std::vector<ion::math::Matrix3d> CalcStatesVnb(const std::vector<State>& states)
+{
+   std::vector<ion::math::Matrix3d> vnbs;
+
+   for (size_t i = 0; i < states.size(); i++)
+   {
+      vnbs.push_back(SnapshotData::CalcVNB(states[i]));
+   }
+
+   return vnbs;
+}
+
+std::vector<ion::math::Point3d> CalcStatesPos(const std::vector<State>& states)
+{
+   std::vector<ion::math::Point3d> pos;
+
+   for (size_t i = 0; i < states.size(); i++)
+   {
+      pos.push_back(states[i].Pos);
+   }
+
+   return pos;
+}
+
+SnapshotData::SnapshotData(double epoch, const std::vector<State>& stateA, const std::vector<State>& stateB):
+   m_Epoch(epoch),
+   m_StateAVnb(CalcStatesVnb(stateA)),
+   m_StateAPos(CalcStatesPos(stateA)),
+   m_StateBPos(CalcStatesPos(stateB)),
+   m_StateABounds(CalcStatesRange(stateA)),
+   m_StateBBounds(CalcStatesRange(stateB))
+{
+
+
+}
 SnapshotData::~SnapshotData() {}
 
 double SnapshotData::GetEpoch() const
@@ -26,34 +70,31 @@ const Range3f& SnapshotData::GetBounds() const
    return m_DifferenceBounds;
 }
 
-vector<StateVertex> SnapshotData::GetDiffData(uint16_t state1Id, uint16_t state2Id) const
+vector<StateVertex> SnapshotData::GetDiffData() const
 {
-   auto& left = m_StateData.find(state1Id)->second;
-   auto& right = m_StateData.find(state2Id)->second;
-
    bool useAllToAll = dynamic_cast<ion::base::Setting<bool>*>(ion::base::SettingManager::GetSetting(SETTINGS_SCENE_ALLTOALL))->GetValue();
    float hbr = dynamic_cast<ion::base::Setting<float>*>(ion::base::SettingManager::GetSetting(SETTINGS_HBR))->GetValue() / 1000.0f;
 
    if (useAllToAll)
-      return CalculateAtoA(left, right, hbr);
+      return CalculateAtoA(hbr);
    else
-      return Calculate1to1(left, right, hbr);
+      return Calculate1to1(hbr);
 }
 
-vector<StateVertex> SnapshotData::Calculate1to1(const vector<State>& left, const vector<State>& right, float hbr) const
+vector<StateVertex> SnapshotData::Calculate1to1(float hbr) const
 {
    vector<StateVertex> vertices;
 
-   for (size_t i = 0; i < right.size(); i++)
-   {
-      Matrix3d rot = CalcVNB(right[i]);
+   float hbr2 = hbr * hbr;
 
-      Vector3d leftVNB = rot * (left[i].Pos - right[i].Pos);
+   for (size_t i = 0; i < m_StateAVnb.size(); i++)
+   {
+      Vector3d leftVNB = m_StateAVnb[i] * (m_StateBPos[i] - m_StateAPos[i]);
 
       StateVertex vertex;
       vertex.Pos = Vector3f(leftVNB);
 
-      if (Length(vertex.Pos) < hbr)
+      if (LengthSquared(vertex.Pos) < hbr2)
          vertex.Color = Vector4ui8(255, 0, 0, 255);
       else
          vertex.Color = Vector4ui8(0, 0, 255, 100);
@@ -64,7 +105,7 @@ vector<StateVertex> SnapshotData::Calculate1to1(const vector<State>& left, const
    return vertices;
 }
 
-vector<StateVertex> SnapshotData::CalculateAtoA(const vector<State>& left, const vector<State>& right, float hbr) const
+vector<StateVertex> SnapshotData::CalculateAtoA(float hbr) const
 {
    map<float, map<float, map<float, uint32_t>>> bins;
 
@@ -72,13 +113,13 @@ vector<StateVertex> SnapshotData::CalculateAtoA(const vector<State>& left, const
 
    long long maxBin = 0;
 
-   for (size_t rIdx = 0; rIdx < right.size(); rIdx++)
+   for (size_t rIdx = 0; rIdx < m_StateAVnb.size(); rIdx++)
    {
-      Matrix3d vnbRot = CalcVNB(right[rIdx]);
+      const Matrix3d & vnbRot = m_StateAVnb[rIdx];
 
-      for (size_t lIdx = 0; lIdx < left.size(); lIdx++)
+      for (size_t lIdx = 0; lIdx < m_StateBPos.size(); lIdx++)
       {
-         Vector3d leftVNB = vnbRot * (left[lIdx].Pos - right[rIdx].Pos);
+         Vector3d leftVNB = vnbRot * (m_StateBPos[lIdx] - m_StateAPos[rIdx]);
 
          union
       {
@@ -176,11 +217,11 @@ bool FileManager::LoadFiles(const vector<string>& files)
 
    for (size_t i = 0; i < files.size(); i++)
    {
-      vector<State> parsed = ParseToStates(files[0]);
+      vector<State> parsed = ParseToStates(files[i]);
 
       if (parsed.size() > 0)
       {
-         m_Files.push_back(files[0]);
+         m_Files.push_back(files[i]);
 
          combinedParsed.insert(combinedParsed.end(), parsed.begin(), parsed.end());
       }
@@ -191,22 +232,26 @@ bool FileManager::LoadFiles(const vector<string>& files)
    return m_Files.size() > 0;
 }
 
-ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> FileManager::GetData(size_t epochIndex, uint16_t state1Id, uint16_t state2Id, ion::math::Range3f & bounds)
+const SnapshotData& FileManager::GetData(size_t epochIndex) const
 {
-   auto& selected = m_StateData[epochIndex];
-
-   ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> vertexData(new ion::base::VectorDataContainer<StateVertex>(true));
-
-   auto diffVector = selected.GetDiffData(state1Id, state2Id);
-
-   vertexData->GetMutableVector()->insert(vertexData->GetMutableVector()->end(), diffVector.begin(), diffVector.end());
-
-   Notify();
-
-   bounds = selected.GetBounds();
-
-   return vertexData;
+   return m_StateData[epochIndex];
 }
+//ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> FileManager::GetData(size_t epochIndex, uint16_t state1Id, uint16_t state2Id, ion::math::Range3f & bounds)
+//{
+//   auto& selected = m_StateData[epochIndex];
+//
+//   ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> vertexData(new ion::base::VectorDataContainer<StateVertex>(true));
+//
+//   auto diffVector = selected.GetDiffData();
+//
+//   vertexData->GetMutableVector()->insert(vertexData->GetMutableVector()->end(), diffVector.begin(), diffVector.end());
+//
+//   Notify();
+//
+//   bounds = selected.GetBounds();
+//
+//   return vertexData;
+//}
 
 vector<State> FileManager::ParseToStates(const string& filename)
 {
@@ -264,7 +309,8 @@ vector<SnapshotData> FileManager::SeparateStateData(const vector<State>& stateLi
 
    for (auto iter = epochToStateId.begin(); iter != epochToStateId.end(); ++iter)
    {
-      stateData.push_back(SnapshotData(iter->first, iter->second));
+      if (iter->second.size() == 2)
+         stateData.push_back(SnapshotData(iter->first, iter->second.begin()->second, (++iter->second.begin())->second));
    }
 
    return stateData;

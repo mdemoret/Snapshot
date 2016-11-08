@@ -89,9 +89,15 @@ void Scene::ReloadPointData()
 {
    Range3f bounds;
 
-   auto container = m_FileManager.GetData(m_EpochIndex.GetValue(), 1, 0, bounds);
+   const SnapshotData& snapData = m_FileManager.GetData(m_EpochIndex.GetValue());
 
-   m_PointsBuffer->SetData(container, sizeof(StateVertex), container->GetVector().size(), BufferObject::kStaticDraw);
+   ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> vertexData(new ion::base::VectorDataContainer<StateVertex>(true));
+
+   auto diffVector = snapData.GetDiffData();
+
+   vertexData->GetMutableVector()->insert(vertexData->GetMutableVector()->end(), diffVector.begin(), diffVector.end());
+
+   m_PointsBuffer->SetData(vertexData, sizeof(StateVertex), vertexData->GetVector().size(), BufferObject::kStaticDraw);
 
    if (m_AutoScale.GetValue())
    {
@@ -129,12 +135,24 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
 
    vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(255, 0, 0, 255)));
    vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0.95f, 0.05f, 0), Vector4ui8(255, 0, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0.95f, -0.05f, 0), Vector4ui8(255, 0, 0, 255)));
 
    vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(0, 255, 0, 255)));
    vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector4ui8(0, 255, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector4ui8(0, 255, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 0.95f, 0.05f), Vector4ui8(0, 255, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector4ui8(0, 255, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 0.95f, -0.05f), Vector4ui8(0, 255, 0, 255)));
 
    vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(0, 0, 255, 255)));
    vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector4ui8(0, 0, 255, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector4ui8(0, 0, 255, 255)));
+   vector.push_back(StateVertex(Vector3f(0.05f, 0, 0.95f), Vector4ui8(0, 0, 255, 255)));
+   vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector4ui8(0, 0, 255, 255)));
+   vector.push_back(StateVertex(Vector3f(-0.05f, 0, 0.95f), Vector4ui8(0, 0, 255, 255)));
 
 
    buffer->SetData(container, sizeof(StateVertex), container->GetVector().size(), BufferObject::kStaticDraw);
@@ -195,7 +213,7 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
    LayoutOptions region;
    region.target_point = Point2f(1.0f, 0.02f);
    region.target_size = Vector2f(0.0f, 0.1f);
-   region.horizontal_alignment = ion::text::HorizontalAlignment::kAlignRight;
+   region.horizontal_alignment = ion::text::HorizontalAlignment::kAlignLeft;
 
    OutlineBuilderPtr vBuilder(new OutlineBuilder(font_image, GetShaderManager(), ion::base::AllocatorPtr()));
 
@@ -438,7 +456,15 @@ NodePtr Scene::BuildHudSceneGraph()
    m_Hud->AddHudItem(std::make_shared<HudItem>("BFMC Snapshot"));
    m_Hud->AddHudItem(std::make_shared<HudItem>("@ 12/09/2016 08:58:27.379"));
    m_Hud->AddHudItem(std::make_shared<HudItem>("Pc = 5.4e-04"));
-   m_Hud->AddHudItem(std::make_shared<HudItem>("HBR = 120 m"));
+
+   auto hbr = std::make_shared<HudItem>("HBR = 120 m");
+
+   m_HardBodyRadius.RegisterListener("SetHBRinHUD", [=](SettingBase* setting)
+                                     {
+                                        hbr->SetText("HBR = " + setting->ToString() + " m");
+                                     });
+
+   m_Hud->AddHudItem(hbr);
 
    m_Hud->GetRootNode()->SetLabel("HUD");
 

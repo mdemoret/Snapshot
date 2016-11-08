@@ -23,6 +23,7 @@ namespace Snapshot{
 
 Window::Window(uint32_t width, uint32_t height, const string& title) :
    m_MouseDownButton(0),
+   m_KeyboardDownButton(0),
    m_MouseLastPos(Point2d::Zero())
 {
    glfwWindowHint(GLFW_SAMPLES, 4); //Set multisampling on
@@ -69,7 +70,7 @@ void Window::Render()
    m_Scene->Render();
 }
 
-int GetButtonValue(int glfwButton)
+int GetMouseButtonValue(int glfwButton)
 {
    if (glfwButton == GLFW_MOUSE_BUTTON_LEFT)
       return 1 << 0;
@@ -81,12 +82,36 @@ int GetButtonValue(int glfwButton)
    return 0;
 }
 
+int GetKeyButtonValue(int glfwButton)
+{
+   if (glfwButton == GLFW_KEY_V)
+      return 1 << 0;
+   else if (glfwButton == GLFW_KEY_N)
+      return 1 << 1;
+   else if (glfwButton == GLFW_KEY_B)
+      return 1 << 2;
+
+   return 0;
+}
+
 void Window::ProcessResize(const Vector2ui& size)
 {
    m_Scene->GetCamera()->SetViewportBounds(size);
 }
 
-void Window::ProcessKey(int key, int scancode, int action, int mods) {}
+void Window::ProcessKey(int key, int scancode, int action, int mods)
+{
+   if (action == GLFW_PRESS)
+   {
+      //Mouse down
+      m_KeyboardDownButton |= GetKeyButtonValue(key);
+   }
+   else if (action == GLFW_RELEASE)
+   {
+      //Mouse up
+      m_KeyboardDownButton &= ~GetKeyButtonValue(key);
+   }
+}
 
 void Window::ProcessMouseMove(const Point2d& pos)
 {
@@ -94,14 +119,54 @@ void Window::ProcessMouseMove(const Point2d& pos)
    {
       Vector2d delta = pos - m_MouseLastPos;
 
-      if ((m_MouseDownButton & GetButtonValue(GLFW_MOUSE_BUTTON_LEFT)) > 0)
+      if ((m_MouseDownButton & GetMouseButtonValue(GLFW_MOUSE_BUTTON_LEFT)) > 0)
       {
-         delta *= 0.1;
-         m_Scene->GetCamera()->DeltaViewpoint(-Angled::FromDegrees(delta[0]), Angled::FromDegrees(delta[1]), Vector1d::Zero());
+         if (m_KeyboardDownButton == 0)
+         {
+            //Rotating
+            delta *= 0.1;
+            m_Scene->GetCamera()->DeltaViewpoint(-Angled::FromDegrees(delta[0]), Angled::FromDegrees(delta[1]), Vector1d::Zero());
+         }
+         else
+         {
+            //Panning
+            Vector3d offset = Vector3d::Fill(0.0);
+
+            if ((m_KeyboardDownButton & GetKeyButtonValue(GLFW_KEY_V)) > 0)
+               offset[0] = delta[1] * 0.1;
+
+            if ((m_KeyboardDownButton & GetKeyButtonValue(GLFW_KEY_N)) > 0)
+               offset[1] = delta[1] * 0.1;
+
+            if ((m_KeyboardDownButton & GetKeyButtonValue(GLFW_KEY_B)) > 0)
+               offset[2] = delta[1] * 0.1;
+
+            m_Scene->GetCamera()->OffsetPositionWorld(offset);
+         }
       }
-      else if ((m_MouseDownButton & GetButtonValue(GLFW_MOUSE_BUTTON_RIGHT)) > 0)
+      else if ((m_MouseDownButton & GetMouseButtonValue(GLFW_MOUSE_BUTTON_RIGHT)) > 0)
       {
-         m_Scene->GetCamera()->ScaleViewpoint(1.0, 1.0, 1.0f + delta[1] * 0.005);
+         if (m_KeyboardDownButton == 0)
+         {
+            //Zooming
+            m_Scene->GetCamera()->ScaleViewpoint(1.0, 1.0, 1.0f + delta[1] * 0.005);
+         }
+         else
+         {
+            //Scaling
+            Vector3d scale = m_Scene->GetCamera()->Scale();
+
+            if ((m_KeyboardDownButton & GetKeyButtonValue(GLFW_KEY_V)) > 0)
+               scale[0] *= 1.0f + delta[1] * 0.005;
+
+            if ((m_KeyboardDownButton & GetKeyButtonValue(GLFW_KEY_N)) > 0)
+               scale[1] *= 1.0f + delta[1] * 0.005;
+
+            if ((m_KeyboardDownButton & GetKeyButtonValue(GLFW_KEY_B)) > 0)
+               scale[2] *= 1.0f + delta[1] * 0.005;
+
+            m_Scene->GetCamera()->SetScale(scale);
+         }
       }
    }
 
@@ -114,12 +179,12 @@ void Window::ProcessMouseButton(int button, int action, int mods)
    if (action == GLFW_PRESS)
    {
       //Mouse down
-      m_MouseDownButton |= GetButtonValue(button);
+      m_MouseDownButton |= GetMouseButtonValue(button);
    }
    else if (action == GLFW_RELEASE)
    {
       //Mouse up
-      m_MouseDownButton &= ~GetButtonValue(button);
+      m_MouseDownButton &= ~GetMouseButtonValue(button);
    }
 }
 

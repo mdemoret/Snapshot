@@ -51,6 +51,8 @@ private:
    //Mouse properties
    int m_MouseDownButton;
    ion::math::Point2d m_MouseLastPos;
+
+   int m_KeyboardDownButton;
 };
 
 

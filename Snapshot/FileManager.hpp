@@ -39,23 +39,32 @@ public:
 class SnapshotData
 {
 public:
-   SnapshotData(double epoch, const std::map<uint16_t, std::vector<State>> & stateData);
+   SnapshotData(double epoch, const std::vector<State> & stateA, const std::vector<State> & stateB);
    virtual ~SnapshotData();
 
    double GetEpoch() const;
    const ion::math::Range3f & GetBounds() const;
 
-   std::vector<StateVertex> GetDiffData(uint16_t state1Id, uint16_t state2Id) const;
-
-private:
-   std::vector<StateVertex> Calculate1to1(const std::vector<State> & left, const std::vector<State> & right, float hbr) const;
-   std::vector<StateVertex> CalculateAtoA(const std::vector<State> & left, const std::vector<State> & right, float hbr) const;
+   std::vector<StateVertex> GetDiffData() const;
 
    static ion::math::Matrix3d CalcVNB(const State & origin);
 
-   double m_Epoch;
-   std::map<uint16_t, std::vector<State>> m_StateData;
+private:
+   std::vector<StateVertex> Calculate1to1(float hbr) const;
+   std::vector<StateVertex> CalculateAtoA(float hbr) const;
+
+   const double m_Epoch;
+   const std::vector<ion::math::Matrix3d> m_StateAVnb;
+   const std::vector<ion::math::Point3d> m_StateAPos;
+   const std::vector<ion::math::Point3d> m_StateBPos;
+
+   //The following are set on initialization
+   const ion::math::Range3d m_StateABounds;
+   const ion::math::Range3d m_StateBBounds;
+
+   //Metrics and statistics
    mutable ion::math::Range3f m_DifferenceBounds;
+
 };
 
 class FileManager : public ion::base::Notifier
@@ -68,7 +77,9 @@ public:
 
    bool LoadFiles(const std::vector<std::string>& files);
 
-   ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> GetData(size_t epochIndex, uint16_t state1Id, uint16_t state2Id, ion::math::Range3f & bounds);
+   const SnapshotData & GetData(size_t epochIndex) const;
+
+   //ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> GetData(size_t epochIndex, uint16_t state1Id, uint16_t state2Id, ion::math::Range3f & bounds);
 
 protected:
    
