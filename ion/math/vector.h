@@ -51,7 +51,7 @@ class VectorBase {
   void Set(T e0, T e1, T e2, T e3);  // Only when Dimension == 4.
 
   // Mutable element accessor.
-  T& operator[](int index) {
+  T& operator[](size_t index) {
     // Check that the index is in range. Use a single DCHECK statement with a
     // conjunction rather than multiple DCHECK_GE and DCHECK_LT statements,
     // since the latter seem to occasionally prevent Visual C++ from inlining
@@ -61,7 +61,7 @@ class VectorBase {
   }
 
   // Read-only element accessor.
-  const T& operator[](int index) const {
+  const T& operator[](size_t index) const {
     // Check that the index is in range. Use a single DCHECK statement with a
     // conjunction rather than multiple DCHECK_GE and DCHECK_LT statements,
     // since the latter seem to occasionally prevent Visual C++ from inlining
@@ -252,16 +252,19 @@ class Vector : public VectorBase<Dimension, T> {
     return !BaseType::AreValuesEqual(v0, v1);
   }
 
+  // Converts a VectorBase of the correct type to a Vector.
+  static Vector ToVector(const VectorBase<Dimension, T>& b)
+  {
+     // This is safe because Vector is the same size as VectorBase and has no
+     // virtual functions. It's ugly, but better than the alternatives.
+     return static_cast<const Vector&>(b);
+  }
+
  private:
   // Type this is derived from.
   typedef VectorBase<Dimension, T> BaseType;
 
-  // Converts a VectorBase of the correct type to a Vector.
-  static const Vector ToVector(const BaseType& b) {
-    // This is safe because Vector is the same size as VectorBase and has no
-    // virtual functions. It's ugly, but better than the alternatives.
-    return static_cast<const Vector&>(b);
-  }
+
 
   // Allow Point to convert BaseType to Vector.
   template<int D, typename U> friend class Point;
@@ -373,20 +376,22 @@ class Point : public VectorBase<Dimension, T> {
     return !BaseType::AreValuesEqual(p0, p1);
   }
 
+  // Converts a VectorBase of the correct type to a Point.
+  static Point ToPoint(const VectorBase<Dimension, T>& b)
+  {
+     // This is safe because Point is the same size as VectorBase and has no
+     // virtual functions. It's ugly, but better than the alternatives.
+     return *static_cast<const Point*>(&b);
+  }
+  // Converts a VectorBase of the correct type to the corresponding Vector type.
+  static const VectorType ToVector(const VectorBase<Dimension, T>& b)
+  {
+     return VectorType::ToVector(b);
+  }
+
  private:
   // Type this is derived from.
   typedef VectorBase<Dimension, T> BaseType;
-
-  // Converts a VectorBase of the correct type to a Point.
-  static const Point ToPoint(const BaseType& b) {
-    // This is safe because Point is the same size as VectorBase and has no
-    // virtual functions. It's ugly, but better than the alternatives.
-    return *static_cast<const Point*>(&b);
-  }
-  // Converts a VectorBase of the correct type to the corresponding Vector type.
-  static const VectorType ToVector(const BaseType& b) {
-    return VectorType::ToVector(b);
-  }
 };
 
 // Prints a Point to a stream.

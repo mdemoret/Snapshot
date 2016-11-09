@@ -209,6 +209,7 @@ Window* Window::GetWindowFromGlfw(GLFWwindow* windowPtr)
    return nullptr;
 }
 
+#ifndef ION_PRODUCTION
 ion::remote::RemoteServer* Window::ResetRemoteServer()
 {
 #if defined(ION_PLATFORM_ASMJS) || defined(ION_PLATFORM_NACL)
@@ -221,4 +222,5 @@ ion::remote::RemoteServer* Window::ResetRemoteServer()
 }
 
 ion::remote::RemoteServer* Window::GetRemoteServer() { return s_Remote.get(); }
+#endif
 }

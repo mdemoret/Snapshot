@@ -43,7 +43,7 @@ public:
    virtual ~SnapshotData();
 
    double GetEpoch() const;
-   const ion::math::Range3f & GetBounds() const;
+   //const ion::math::Range3f & GetBounds() const;
 
    std::vector<StateVertex> GetDiffData() const;
 
@@ -52,6 +52,8 @@ public:
 private:
    std::vector<StateVertex> Calculate1to1(float hbr) const;
    std::vector<StateVertex> CalculateAtoA(float hbr) const;
+
+   void LoadOneToOneData() const;
 
    const double m_Epoch;
    const std::vector<ion::math::Matrix3d> m_StateAVnb;
@@ -63,8 +65,8 @@ private:
    const ion::math::Range3d m_StateBBounds;
 
    //Metrics and statistics
-   mutable ion::math::Range3f m_DifferenceBounds;
-
+   mutable ion::math::Range3f m_OneToOneBounds;
+   mutable std::vector<ion::math::Point3d> m_OneToOneDiffs;
 };
 
 class FileManager : public ion::base::Notifier

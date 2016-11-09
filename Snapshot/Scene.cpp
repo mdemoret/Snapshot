@@ -434,7 +434,7 @@ NodePtr Scene::BuildWorldSceneGraph()
    m_PointsNode->AddShape(shape);
    m_PointsNode->SetShaderProgram(pointsShader);
 
-   m_PointsNode->AddUniform(pointsRegistry->Create<Uniform>("uPointSize", 3.0f));
+   m_PointsNode->AddUniform(pointsRegistry->Create<Uniform>("uPointSize", 4.0f));
    m_PointsNode->Enable(false);
 
    //StateTablePtr pointsTable(new StateTable());

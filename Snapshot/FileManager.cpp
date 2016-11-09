@@ -65,10 +65,10 @@ double SnapshotData::GetEpoch() const
    return m_Epoch;
 }
 
-const Range3f& SnapshotData::GetBounds() const
-{
-   return m_DifferenceBounds;
-}
+//const Range3f& SnapshotData::GetBounds() const
+//{
+//   return m_DifferenceBounds;
+//}
 
 vector<StateVertex> SnapshotData::GetDiffData() const
 {
@@ -83,101 +83,221 @@ vector<StateVertex> SnapshotData::GetDiffData() const
 
 vector<StateVertex> SnapshotData::Calculate1to1(float hbr) const
 {
+   //Get the diff data. This is cached if possible
+   LoadOneToOneData();
+
+   //First thing, calculate the maximum size
+   const Point3f & upper = m_OneToOneBounds.GetMaxPoint();
+   const Point3f & lower = m_OneToOneBounds.GetMinPoint();
+
+   float stepSize = 0.01f;
+
+   //Now determine the number of steps in each direction
+   Vector3f stepCount = (upper - lower) / stepSize;
+
+   size_t xCount = (uint32_t)ceil(abs(stepCount[0])) + 1;
+   size_t yCount = (uint32_t)ceil(abs(stepCount[1])) + 1;
+   size_t zCount = (uint32_t)ceil(abs(stepCount[2])) + 1;
+
+   uint32_t * data = new uint32_t[xCount * yCount * zCount];
+
+   size_t totalCount = xCount * yCount * zCount;
+
+   memset(data, 0, totalCount * sizeof(uint32_t));
+
    vector<StateVertex> vertices;
+
+   size_t xStride = yCount * zCount;
+   size_t yStride = zCount;
 
    float hbr2 = hbr * hbr;
 
-   for (size_t i = 0; i < m_StateAVnb.size(); i++)
+   for (size_t i = 0; i < m_OneToOneDiffs.size(); i++)
    {
-      Vector3d leftVNB = m_StateAVnb[i] * (m_StateBPos[i] - m_StateAPos[i]);
+      Vector3f indexFloating = (Point3f(m_OneToOneDiffs[i]) - lower) / stepSize;
 
-      StateVertex vertex;
-      vertex.Pos = Vector3f(leftVNB);
+      DCHECK_LT(indexFloating[0], xCount);
+      DCHECK_LT(indexFloating[1], yCount);
+      DCHECK_LT(indexFloating[2], zCount);
 
-      if (LengthSquared(vertex.Pos) < hbr2)
-         vertex.Color = Vector4ui8(255, 0, 0, 255);
-      else
-         vertex.Color = Vector4ui8(0, 0, 255, 100);
+      size_t finalIndex = xStride * (size_t)round(indexFloating[0]) + yStride * (size_t)round(indexFloating[1]) + (size_t)round(indexFloating[2]);
 
-      vertices.push_back(vertex);
+      DCHECK_LT(finalIndex, totalCount);
+
+      data[finalIndex]++;
    }
 
-   return vertices;
-}
+   Vector3f lowerVector = Vector3f::ToVector(lower);
 
-vector<StateVertex> SnapshotData::CalculateAtoA(float hbr) const
-{
-   map<float, map<float, map<float, uint32_t>>> bins;
-
-   const int scale = 17;
-
-   long long maxBin = 0;
-
-   for (size_t rIdx = 0; rIdx < m_StateAVnb.size(); rIdx++)
+   for (size_t xIdx = 0; xIdx < xCount; xIdx++)
    {
-      const Matrix3d & vnbRot = m_StateAVnb[rIdx];
-
-      for (size_t lIdx = 0; lIdx < m_StateBPos.size(); lIdx++)
+      for (size_t yIdx = 0; yIdx < yCount; yIdx++)
       {
-         Vector3d leftVNB = vnbRot * (m_StateBPos[lIdx] - m_StateAPos[rIdx]);
-
-         union
-      {
-         int ix;
-         float fx;
-      } x, y, z;
-
-         x.fx = static_cast<float>(leftVNB[0]);
-         x.ix &= ~((1 << scale) - 1);
-
-         y.fx = static_cast<float>(leftVNB[1]);
-         y.ix &= ~((1 << scale) - 1);
-
-         z.fx = static_cast<float>(leftVNB[2]);
-         z.ix &= ~((1 << scale) - 1);
-
-         maxBin = max(static_cast<long long>(bins[x.fx][y.fx][z.fx]++), maxBin);
-      }
-   }
-
-   m_DifferenceBounds = Range3f(Point3f(bins.begin()->first, std::numeric_limits<float>::max(), std::numeric_limits<float>::max()), Point3f(bins.rbegin()->first, std::numeric_limits<float>::lowest(), std::numeric_limits<float>::lowest()));
-
-   vector<StateVertex> vertices;
-
-   for (auto xIter = bins.begin(); xIter != bins.end(); ++xIter)
-   {
-      if (xIter->second.begin()->first < m_DifferenceBounds.GetMinPoint()[1])
-         m_DifferenceBounds.SetMinComponent(1, xIter->second.begin()->first);
-
-      if (xIter->second.rbegin()->first > m_DifferenceBounds.GetMaxPoint()[1])
-         m_DifferenceBounds.SetMaxComponent(1, xIter->second.rbegin()->first);
-
-      for (auto yIter = xIter->second.begin(); yIter != xIter->second.end(); ++yIter)
-      {
-         if (yIter->second.begin()->first < m_DifferenceBounds.GetMinPoint()[2])
-            m_DifferenceBounds.SetMinComponent(2, yIter->second.begin()->first);
-
-         if (yIter->second.rbegin()->first > m_DifferenceBounds.GetMaxPoint()[2])
-            m_DifferenceBounds.SetMaxComponent(2, yIter->second.rbegin()->first);
-
-         for (auto zIter = yIter->second.begin(); zIter != yIter->second.end(); ++zIter)
+         for (size_t zIdx = 0; zIdx < zCount; zIdx++)
          {
-            StateVertex vertex;
-            vertex.Pos = Vector3f(xIter->first, yIter->first, zIter->first);
+            if (data[xIdx * xStride + yIdx * yStride + zIdx] == 0)
+               continue;
 
-            if (Length(vertex.Pos) < hbr)
+            StateVertex vertex;
+            vertex.Pos = lowerVector + (Vector3f(static_cast<float>(xIdx), static_cast<float>(yIdx), static_cast<float>(zIdx)) * static_cast<float>(stepSize));
+
+            if (LengthSquared(vertex.Pos) < hbr2)
                vertex.Color = Vector4ui8(255, 0, 0, 255);
             else
                vertex.Color = Vector4ui8(0, 0, 255, 100);
-
-            //vertex.Color = Vector3ui8::Fill(static_cast<uint8_t>(static_cast<double>(zIter->second * 255) / static_cast<double>(maxBin)));
 
             vertices.push_back(vertex);
          }
       }
    }
 
+   delete[] data;
+
    return vertices;
+}
+
+vector<StateVertex> SnapshotData::CalculateAtoA(float hbr) const
+{
+   //Get the diff data. This is cached if possible
+   LoadOneToOneData();
+
+   //Use the one to one bounds to make a guess on the max size by doing 2X the one to one
+   const Point3f & upper = m_OneToOneBounds.GetCenter() + m_OneToOneBounds.GetSize();
+   const Point3f & lower = m_OneToOneBounds.GetCenter() - m_OneToOneBounds.GetSize();
+
+   float stepSize = 0.0005f;
+
+   //Now determine the number of steps in each direction
+   Vector3f stepCount = (upper - lower) / stepSize;
+
+   size_t xCount = (uint32_t)ceil(abs(stepCount[0])) + 1;
+   size_t yCount = (uint32_t)ceil(abs(stepCount[1])) + 1;
+   size_t zCount = (uint32_t)ceil(abs(stepCount[2])) + 1;
+
+   uint32_t * data = new uint32_t[xCount * yCount * zCount];
+
+   size_t totalCount = xCount * yCount * zCount;
+
+   memset(data, 0, totalCount * sizeof(uint32_t));
+
+   vector<StateVertex> vertices;
+
+   size_t xStride = yCount * zCount;
+   size_t yStride = zCount;
+
+   float hbr2 = hbr * hbr;
+
+   const float * lowerData = lower.Data();
+
+#pragma omp parallel for
+   for (int aIdx = 0; aIdx < m_StateAVnb.size(); aIdx++)
+   {
+      const double * stateAdata = m_StateAPos[aIdx].Data();
+
+      const double * stateAvnbX = m_StateAVnb[aIdx][0];
+      const double * stateAvnbY = m_StateAVnb[aIdx][1];
+      const double * stateAvnbZ = m_StateAVnb[aIdx][2];
+
+      for (size_t bIdx = 0; bIdx < m_StateBPos.size(); bIdx++)
+      {
+         Point3d diff2 = Point3d::ToPoint(m_StateAVnb[aIdx] * (m_StateBPos[bIdx] - m_StateAPos[aIdx]));
+
+         Vector3f indexFloating = (Point3f(diff2) - lower) / stepSize;
+
+         //DCHECK_LT(indexFloating[0], xCount);
+         //DCHECK_LT(indexFloating[1], yCount);
+         //DCHECK_LT(indexFloating[2], zCount);
+
+         //size_t finalIndex = xStride * (size_t)round(indexFloating[0]) + yStride * (size_t)round(indexFloating[1]) + (size_t)round(indexFloating[2]);
+
+         //DCHECK_LT(finalIndex, totalCount);
+
+         //data[finalIndex]++;
+
+         double diff[3];
+         
+         const double * stateBdata = m_StateBPos[bIdx].Data();
+
+         diff[0] = (stateBdata[0] - stateAdata[0]);
+         diff[1] = (stateBdata[1] - stateAdata[1]);
+         diff[2] = (stateBdata[2] - stateAdata[2]);
+
+         double diffF[3];
+
+         diffF[0] = stateAvnbX[0] * diff[0] + stateAvnbX[1] * diff[1] + stateAvnbX[2] * diff[2];
+         diffF[1] = stateAvnbY[0] * diff[0] + stateAvnbY[1] * diff[1] + stateAvnbY[2] * diff[2];
+         diffF[2] = stateAvnbZ[0] * diff[0] + stateAvnbZ[1] * diff[1] + stateAvnbZ[2] * diff[2];
+
+         diff[0] = (diffF[0] - lowerData[0]) / stepSize;
+         diff[1] = (diffF[1] - lowerData[1]) / stepSize;
+         diff[2] = (diffF[2] - lowerData[2]) / stepSize;
+
+         DCHECK_LT(diff[0], xCount);
+         DCHECK_LT(diff[1], yCount);
+         DCHECK_LT(diff[2], zCount);
+
+         size_t finalIndex = xStride * (size_t)diff[0] + yStride * (size_t)diff[1] + (size_t)diff[2];
+
+         DCHECK_LT(finalIndex, totalCount);
+
+#pragma omp atomic
+         data[finalIndex]++;
+      }
+   }
+
+   Vector3f lowerVector = Vector3f::ToVector(lower);
+
+   for (size_t xIdx = 0; xIdx < xCount; xIdx++)
+   {
+      for (size_t yIdx = 0; yIdx < yCount; yIdx++)
+      {
+         for (size_t zIdx = 0; zIdx < zCount; zIdx++)
+         {
+            if (data[xIdx * xStride + yIdx * yStride + zIdx] == 0)
+               continue;
+
+            StateVertex vertex;
+            vertex.Pos = lowerVector + (Vector3f(static_cast<float>(xIdx), static_cast<float>(yIdx), static_cast<float>(zIdx)) * static_cast<float>(stepSize));
+
+            if (LengthSquared(vertex.Pos) < hbr2)
+               vertex.Color = Vector4ui8(255, 0, 0, 255);
+            else
+               vertex.Color = Vector4ui8(0, 0, 255, 100);
+
+            vertices.push_back(vertex);
+         }
+      }
+   }
+
+   delete[] data;
+
+   return vertices;
+}
+
+void SnapshotData::LoadOneToOneData() const 
+{
+   if (m_OneToOneDiffs.size() > 0)
+      return;
+
+   Point3d minPoint = Point3d::Fill(std::numeric_limits<float>::max());
+   Point3d maxPoint = Point3d::Fill(-std::numeric_limits<float>::max());
+
+   for (size_t i = 0; i < m_StateAVnb.size(); i++)
+   {
+      Point3d diff = Point3d::ToPoint(m_StateAVnb[i] * (m_StateBPos[i] - m_StateAPos[i]));
+
+      for (int j = 0; j < 3; j++)
+      {
+         if (diff[j] < minPoint[j])
+            minPoint[j] = diff[j];
+         if (diff[j] > maxPoint[j])
+            maxPoint[j] = diff[j];
+      }
+
+      m_OneToOneDiffs.push_back(diff);
+   }
+
+   m_OneToOneBounds = Range3f(Point3f(minPoint), Point3f(maxPoint));
 }
 
 Matrix3d SnapshotData::CalcVNB(const State& origin)

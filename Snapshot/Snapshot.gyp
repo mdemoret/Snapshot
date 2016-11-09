@@ -71,9 +71,9 @@
       'dependencies': [
         ':Snapshot_assets',
         '<(ion_dir)/external/freetype2.gyp:ionfreetype2',
-        #'<(ion_dir)/external/glfw.gyp:glfw',
+        '<(ion_dir)/external/glfw.gyp:glfw',
       ],
-    },
+    },  # target: Snapshot_assets
     {
       'variables': {
         'make_this_target_into_an_app_param': 'Snapshot',
@@ -91,19 +91,19 @@
               ],
             },
           },
-          'copies': [
-            # Test copying to a file that has envvars in its dest path.
-            # Needs to be in a mac_bundle target, else CONTENTS_FOLDER_PATH isn't
-            # set.
-            {
-              'destination': '<(out_dir)',
-              'files': [
-                'packages.config',
-              ],
-            },
-          ],
         }],
       ],
     },
+
+    {
+      'target_name': 'SnapshotInstaller',
+      'type': 'wix_installer',
+      'dependencies': [
+        ':Snapshot',
+      ],
+      'sources': [
+        './InstallSnapshot.wxs',
+      ],
+    },  # target: SnapshotInstaller
   ],
 }

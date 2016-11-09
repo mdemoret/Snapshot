@@ -146,6 +146,12 @@
             'BufferSecurityCheck': 'true',
             'DebugInformationFormat': '3',  # /Zi
             'AdditionalOptions': '/FS',  # Force synchronous pdb writing.
+            'EnableEnhancedInstructionSet': '5', # AdvancedVectorExtensions2
+            'MultiProcessorCompilation': 'true',
+            'InlineFunctionExpansion': '2', # AnySuitable
+            'EnableIntrinsicFunctions': 'true', # Renamed from IntrinsicFunctions
+            'FavorSizeOrSpeed': '1', # Speed
+            'WholeProgramOptimization': 'true',
           },
           'VCLinkerTool': {
             'LinkIncremental': '1',      # Disabled.
@@ -153,6 +159,7 @@
             'EnableCOMDATFolding': '2',  # Folding.
             'OptimizeForWindows98': '1', # Disabled.
             'GenerateDebugInformation': 'true',
+            'LinkTimeCodeGeneration': '1'
           },
         },
       },
@@ -177,11 +184,11 @@
           },
           'VCLinkerTool': {
             # /LTCG
-            'LinkTimeCodeGeneration': 'LinkTimeCodeGenerationOptionUse',
+            'LinkTimeCodeGeneration': '1',
           },
           'VCLibrarianTool': {
             # /LTCG
-            'LinkTimeCodeGeneration': 'LinkTimeCodeGenerationOptionUse',
+            'LinkTimeCodeGeneration': 'true',
           },
         },
       },
@@ -675,7 +682,7 @@
                 'inherit_from': ['dbg_base', 'x64_base'],
               },
               'Release': {
-                'inherit_from': ['dbg_base', 'x64_base'],
+                'inherit_from': ['opt_base', 'x64_base'],
               },
             },
           }, {
