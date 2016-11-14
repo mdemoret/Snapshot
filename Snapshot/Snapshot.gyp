@@ -73,7 +73,17 @@
         '<(ion_dir)/external/freetype2.gyp:ionfreetype2',
         '<(ion_dir)/external/glfw.gyp:glfw',
       ],
-    },  # target: Snapshot_assets
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'AdditionalDependencies': [
+            '%(AdditionalDependencies)',
+            ],
+        },
+        'VCCLCompilerTool': {
+          'OpenMP': 'true',
+        }
+      },
+    },  # target: Snapshot
     {
       'variables': {
         'make_this_target_into_an_app_param': 'Snapshot',
@@ -81,17 +91,6 @@
       },
       'includes': [
         'demo_apk_variables.gypi',
-      ],
-      'conditions':[
-        ['OS == "windows"', {
-          'msvs_settings': {
-            'VCLinkerTool': {
-              'AdditionalDependencies': [
-                '%(AdditionalDependencies)',
-              ],
-            },
-          },
-        }],
       ],
     },
 
