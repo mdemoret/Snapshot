@@ -255,6 +255,7 @@
           'msvs_disabled_warnings': [
             '4244',   # Conversion from __int64 to int [64-bit builds].
             '4267',   # Conversion from size_t to int [64-bit builds].
+            '4334',
           ],
         }],
       ],
