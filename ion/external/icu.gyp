@@ -38,6 +38,7 @@
       ],
       'cflags_cc': [
         '-Wno-deprecated-declarations',
+        '-O2',
       ],
       'cflags_cc!': [
         '-Wconversion',
@@ -52,6 +53,10 @@
         '4244', # Conversion from 64-bit to 32-bit types.
         '4267', # Conversion from 64-bit to 32-bit types.
         '4996', # 'uidna_toASCII': was declared deprecated.
+        # TODO(brucedawson): http://crbug.com/593448 4334 is a 'suspicious
+        # shift' warning and 4595 is an 'illegal inline operator new' warning
+        # Both are new in VS 2015 Update 2 and can safely be deferred for now.
+        '4334', '4595',
       ],
       'sources': [
         # To generate this list cd into third_party/icu and run:
