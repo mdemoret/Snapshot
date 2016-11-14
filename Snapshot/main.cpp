@@ -107,8 +107,9 @@ int main(int argc, char *argv[])
 
       glfwMakeContextCurrent(_Window->GetGlfwPtr());
    }
-   catch(std::exception)
+   catch(std::exception & ex)
    {
+      LOG(ERROR) << "Root level exception occurred: \n" << ex.what();
       exit(EXIT_FAILURE);
    }
 
