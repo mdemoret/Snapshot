@@ -5,6 +5,7 @@
 #include "IonFwd.h"
 #include "ion/math/vector.h"
 #include "ion/math/angle.h"
+#include "KeyboardHandler.hpp"
 
 struct GLFWwindow;
 
@@ -19,7 +20,7 @@ public:
 
    GLFWwindow* GetGlfwPtr() const;
 
-   virtual void Update();
+   virtual bool Update();
    virtual void Render();
 
    void ProcessResize(const ion::math::Vector2ui& size);
@@ -48,11 +49,16 @@ private:
 
    SceneBase* m_Scene;
 
+   //The keyboard is the bridge between the glfw window input and the scene. 
+   //All raw commands are filtered and intrepreted by the keyboard handler before passing it along to the scene or child objects
+   KeyboardHandler m_Keyboard;
+
    //Mouse properties
    int m_MouseDownButton;
    ion::math::Point2d m_MouseLastPos;
 
    int m_KeyboardDownButton;
+   double m_LastFrameElapsedSec;
 };
 
 

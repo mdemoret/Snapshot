@@ -84,19 +84,61 @@ size_t Hud::AddText(const FontImagePtr& font_image, const LayoutOptions& region,
    return id;
 }
 
-HudItem::HudItem(const std::string& startString):
+HudItem::HudItem(const string& startString):
 m_Text(startString){}
 
-void HudItem::SetText(const std::string& text) 
+void HudItem::SetText(const string& text) 
 {
    m_Text = text;
 }
 
-std::string HudItem::GetText() const
+string HudItem::GetText() const
 {
    return m_Text;
 }
 
+ProgressHandler::~ProgressHandler() {
+//As we close, set the handle back to null
+   m_Parent->m_GetProgressFunc = nullptr;
+}
+
+void ProgressHandler::SetProgressFunc(const std::function<string()>& getProgress)
+{
+   if (getProgress == nullptr)
+      m_Parent->m_GetProgressFunc = DefaultHandler;
+   else
+      m_Parent->m_GetProgressFunc = getProgress;
+}
+
+ProgressHandler::ProgressHandler(ProgressHudItem* parent) :
+   m_Parent(parent)
+{
+   //Begin by setting the parent processing handle to the default
+   m_Parent->m_GetProgressFunc = DefaultHandler;
+}
+
+string ProgressHandler::DefaultHandler() {
+   return "Loading";
+}
+
+ProgressHudItem::~ProgressHudItem() {}
+
+ProgressHandler ProgressHudItem::GetProgressHandler() {
+   return ProgressHandler(this);
+}
+
+bool ProgressHudItem::IsProcessingActive() const 
+{
+   return m_GetProgressFunc != nullptr;
+}
+
+string ProgressHudItem::GetText() const 
+{
+   if (!IsProcessingActive() || m_GetProgressFunc == nullptr)
+      return "";
+
+   return m_GetProgressFunc();
+}
 //-----------------------------------------------------------------------------
 //
 // Hud class functions.
@@ -109,9 +151,47 @@ Hud::Hud(const FontManagerPtr& font_manager, const ion::gfxutils::ShaderManagerP
    m_ViewportUniforms(viewportUniforms)
 {
    SnapshotAssets::RegisterAssetsOnce();
+
+   //Set up the progress handler
+   FontPtr font = InitFont("Hud", 30U, 8U);
+   if (font.Get())
+   {
+      FontImagePtr font_image(InitFontImage("HUD Progress", font));
+
+      LayoutOptions region;
+      region.horizontal_alignment = kAlignHCenter;
+      region.vertical_alignment = kAlignVCenter;
+
+      string text = "Loading";
+
+      BasicBuilderPtr builder(new BasicBuilder(font_image, m_ShaderManager, ion::base::AllocatorPtr()));
+
+      const Layout layout = font_image->GetFont()->BuildLayout(text, region);
+
+      if (builder->Build(layout, ion::gfx::BufferObject::kStreamDraw))
+      {
+         //Must set the color after building
+         builder->SetTextColor(Vector4f(0.0f, 0.0f, 0.0f, 1.0f));
+
+         TextSpec text_spec;
+         text_spec.region = region;
+         text_spec.text = text;
+         text_spec.builder = builder;
+         text_spec.node = builder->GetNode();
+
+         m_ProgressItem = std::pair<ProgressHudItemPtr, TextSpec>(std::make_shared<ProgressHudItem>(""), text_spec);
+
+         m_Root->AddChild(text_spec.node);
+      }
+   }
 }
 
 Hud::~Hud() {}
+
+ProgressHudItemPtr Hud::GetProgressHudItem() const 
+{
+   return m_ProgressItem.first;
+}
 
 size_t Hud::AddHudItem(const HudItemPtr& item)
 {
@@ -150,10 +230,55 @@ size_t Hud::AddHudItem(const HudItemPtr& item)
    return ion::base::kInvalidIndex;
 }
 
-void Hud::Update()
+bool Hud::Update(double elapsedTimeInSec, double secSinceLastFrame)
 {
    //Get the width and height from the uniforms
    const VectorBase2i& viewSize = m_ViewportUniforms->GetUniforms()[m_ViewportUniforms->GetUniformIndex(UNIFORM_GLOBAL_VIEWPORTSIZE)].GetValue<VectorBase2i>();
+
+   //Set the enabled flag for all nodes
+   bool processingActive = m_ProgressItem.first->IsProcessingActive();
+
+   m_ProgressItem.second.node->Enable(processingActive);
+
+   for (size_t i = 0; i < m_Items.size(); ++i)
+   {
+      m_Items[i].second.node->Enable(!processingActive);
+   }
+
+   if (m_ProgressItem.first->IsProcessingActive())
+   {
+      TextSpec& spec = m_ProgressItem.second;
+      LayoutOptions& region = spec.region;
+
+      int dotCount = (int)ceil(fmod(elapsedTimeInSec, 3.0));
+
+      spec.text = m_ProgressItem.first->GetText();
+
+      Lines lines = ion::base::SplitString(spec.text, "\n");
+
+      //Set the current point
+      spec.region.target_point = Point2f(0.5f, 0.5f);
+
+      FreeTypeFont* ftFont = static_cast<FreeTypeFont *>(spec.builder->GetFont().Get());
+
+      // Determine the size of the text.
+      TextSize text_size = ComputeTextSize(*ftFont, spec.region, lines);
+
+      spec.text = m_ProgressItem.first->GetText() + std::string(dotCount, '.');
+      lines = ion::base::SplitString(spec.text, "\n");
+
+      TextSize text_size_with_dots = ComputeTextSize(*ftFont, spec.region, lines);
+
+      auto sizeWithOutDots = Vector2f(text_size.rect_size_in_pixels[0] / viewSize[0], text_size.rect_size_in_pixels[1] / viewSize[1]);
+
+      spec.region.target_size = Vector2f(text_size_with_dots.rect_size_in_pixels[0] / viewSize[0], text_size_with_dots.rect_size_in_pixels[1] / viewSize[1]);
+
+      spec.region.target_point[0] += (spec.region.target_size[0] - sizeWithOutDots[0]) / 2.0f;
+
+      spec.builder->Build(spec.builder->GetFont()->BuildLayout(spec.text, spec.region), ion::gfx::BufferObject::kStreamDraw);
+
+      return false;
+   }
 
    //Start 5 pixels off the border
    Point2f currPoint = Point2f(5.0f / static_cast<float>(viewSize[0]), 1.0f - (5.0f / static_cast<float>(viewSize[1])));
@@ -186,4 +311,6 @@ void Hud::Update()
 
       currPoint = spec.region.target_point;
    }
+
+   return true;
 }

@@ -60,9 +60,11 @@ SceneBase::SceneBase():
 
 SceneBase::~SceneBase() {}
 
-void SceneBase::Update() 
+bool SceneBase::Update(double elapsedTimeInSec, double secSinceLastFrame)
 {
    m_Camera->UpdateUniforms();
+
+   return true;
 }
 
 void SceneBase::Render()
@@ -78,6 +80,10 @@ void SceneBase::InitRemoteHandlers(const vector<NodePtr>& nodes_to_track)
 
    auto remote = Window::ResetRemoteServer();
 
+   remote->RegisterHandler(ion::remote::HttpServer::RequestHandlerPtr(new ion::remote::SettingHandler()));
+
+#ifdef _DEBUG
+
    ion::remote::NodeGraphHandlerPtr ngh(new ion::remote::NodeGraphHandler);
    ngh->SetFrame(m_Frame);
    for (size_t i = 0; i < nodes_to_track.size(); ++i)
@@ -86,9 +92,9 @@ void SceneBase::InitRemoteHandlers(const vector<NodePtr>& nodes_to_track)
    remote->RegisterHandler(ngh);
    remote->RegisterHandler(ion::remote::HttpServer::RequestHandlerPtr(new ion::remote::CallTraceHandler()));
    remote->RegisterHandler(ion::remote::HttpServer::RequestHandlerPtr(new ion::remote::ResourceHandler(GetRenderer())));
-   remote->RegisterHandler(ion::remote::HttpServer::RequestHandlerPtr(new ion::remote::SettingHandler()));
    remote->RegisterHandler(ion::remote::HttpServer::RequestHandlerPtr(new ion::remote::ShaderHandler(GetShaderManager(), GetRenderer())));
    remote->RegisterHandler(ion::remote::HttpServer::RequestHandlerPtr(new ion::remote::TracingHandler(GetFrame(), GetRenderer())));
+#endif
 
 #endif
 }

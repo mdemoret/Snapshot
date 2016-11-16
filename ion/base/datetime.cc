@@ -647,7 +647,8 @@ void DateTime::ComputeTimeString(const TimeStringEnum output_time_format,
 bool DateTime::Use24HourTime() const {
   // Set this string to 24 (just two numerals) to use 24-hour time format,
   // otherwise, this will use am/pm format.
-  static const std::string kFormatToUse("using am/pm time format");
+  //static const std::string kFormatToUse("using am/pm time format");
+  static const std::string kFormatToUse("24");
   return kFormatToUse == "24";
 }
 

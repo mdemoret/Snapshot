@@ -86,8 +86,7 @@ int main(int argc, char *argv[])
       SetCallbacks(_Window);
       
       glfwSwapInterval(1); //Indicates that SwapBuffers should be called no more than once per frame
-      glfwWaitEventsTimeout(1.0); //Specifies that we will update once per second to keep things alive but not burn CPU
-
+      
       //Initialize the settings
       if (arguments.size() > 0)
          _Window->ProcessFileDrop(arguments);
@@ -96,13 +95,13 @@ int main(int argc, char *argv[])
       while (!glfwWindowShouldClose(_Window->GetGlfwPtr()))
       {
          //First update to get the windows synced with any events
-         _Window->Update();
+         double waitTimeout = _Window->Update() ? 0.2 : 0.0;
 
          //Render the window, this calls SwapBuffers on its own
          _Window->Render();
 
          glfwSwapBuffers(_Window->GetGlfwPtr());
-         glfwWaitEvents();
+         glfwWaitEventsTimeout(waitTimeout);
       }
 
       glfwMakeContextCurrent(_Window->GetGlfwPtr());
@@ -171,5 +170,8 @@ void drop_callback(GLFWwindow* window, int count, const char** paths)
 
 void window_refresh_callback(GLFWwindow* window)
 {
+   //First update to get the windows synced with any events
+   _Window->Update();
+
    _Window->Render();
 }

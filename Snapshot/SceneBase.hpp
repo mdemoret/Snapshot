@@ -13,7 +13,7 @@ public:
    SceneBase();
    virtual ~SceneBase();
 
-   virtual void Update();
+   virtual bool Update(double elapsedTimeInSec, double secSinceLastFrame);
    void Render();
 
    const std::shared_ptr<Camera>& GetCamera() const;

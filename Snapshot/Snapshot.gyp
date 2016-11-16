@@ -55,6 +55,8 @@
         'Hud.cpp',
         'Hud.hpp',
         'IonFwd.h',
+        'KeyboardHandler.cpp',
+        'KeyboardHandler.hpp',
         'Macros.h',
         'main.cpp',
         'resource.h',
@@ -81,6 +83,7 @@
         },
         'VCCLCompilerTool': {
           'OpenMP': 'true',
+          'EnableEnhancedInstructionSet': '3', # AdvancedVectorExtensions
         }
       },
     },  # target: Snapshot

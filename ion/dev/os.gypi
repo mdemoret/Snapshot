@@ -146,7 +146,6 @@
             'BufferSecurityCheck': 'true',
             'DebugInformationFormat': '3',  # /Zi
             'AdditionalOptions': '/FS',  # Force synchronous pdb writing.
-            'EnableEnhancedInstructionSet': '3', # AdvancedVectorExtensions
             'MultiProcessorCompilation': 'true',
             'InlineFunctionExpansion': '2', # AnySuitable
             'EnableIntrinsicFunctions': 'true', # Renamed from IntrinsicFunctions

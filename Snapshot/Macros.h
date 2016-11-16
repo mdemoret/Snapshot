@@ -1,11 +1,18 @@
 #pragma once
 
-#define SETTINGS_INPUT_FILES "InputFiles"
-#define SETTINGS_HBR "HardBodyRadius"
-#define SETTINGS_EPOCH_INDEX "EpochIndex"
+#define SETTINGS_INPUT_FILES "Input/Files"
+#define SETTINGS_INPUT_EPOCH_INDEX "Input/EpochIndex"
+
+#define SETTINGS_CONFIG_HBR "Config/HardBodyRadius"
+#define SETTINGS_CONFIG_ALLTOALL_USE "Config/AllToAll/Use"
+#define SETTINGS_CONFIG_ALLTOALL_BIN_COUNT "Config/AllToAll/BinCount"
+#define SETTINGS_CONFIG_ALLTOALL_INITIAL_BIN_MULT "Config/AllToAll/InitialBinMultiplier"
+#define SETTINGS_CONFIG_ALLTOALL_MAX_BIN_TRIES "Config/AllToAll/MaxBinTries"
+
 #define SETTINGS_SCENE_LOOKATCOM "Scene/LookAtCOM"
+#define SETTINGS_SCENE_SHOW_COM "Scene/ShowCOM"
 #define SETTINGS_SCENE_AUTOSCALE "Scene/AutoScale"
-#define SETTINGS_SCENE_ALLTOALL "Scene/AllToAll"
+#define SETTINGS_SCENE_POINT_SIZE "Scene/PointSize"
 
 #define UNIFORM_GLOBAL_VIEWPORTSIZE "uViewportSize"
 #define UNIFORM_GLOBAL_PROJECTIONMATRIX "uProjectionMatrix"

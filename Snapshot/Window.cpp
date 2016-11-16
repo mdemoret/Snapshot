@@ -23,8 +23,9 @@ namespace Snapshot{
 
 Window::Window(uint32_t width, uint32_t height, const string& title) :
    m_MouseDownButton(0),
+   m_MouseLastPos(Point2d::Zero()),
    m_KeyboardDownButton(0),
-   m_MouseLastPos(Point2d::Zero())
+   m_LastFrameElapsedSec(0.0)
 {
    glfwWindowHint(GLFW_SAMPLES, 4); //Set multisampling on
 
@@ -39,7 +40,7 @@ Window::Window(uint32_t width, uint32_t height, const string& title) :
 
    glfwSetWindowUserPointer(m_WindowPtr, this);
 
-   m_Scene = new Scene();
+   m_Scene = new Scene(m_Keyboard);
 
    m_Scene->GetCamera()->SetViewportBounds(Vector2ui(width, height));
 }
@@ -60,9 +61,13 @@ Window::~Window()
 #endif
 }
 
-void Window::Update()
+bool Window::Update()
 {
-   m_Scene->Update();
+   double currElapsed = glfwGetTime();
+   double diffElapsed = currElapsed - m_LastFrameElapsedSec;
+   m_LastFrameElapsedSec = currElapsed;
+
+   return m_Scene->Update(currElapsed, diffElapsed);
 }
 
 void Window::Render()
@@ -101,15 +106,30 @@ void Window::ProcessResize(const Vector2ui& size)
 
 void Window::ProcessKey(int key, int scancode, int action, int mods)
 {
-   if (action == GLFW_PRESS)
+   //Special processing for keys that trigger events on their own
+   switch (key)
    {
-      //Mouse down
-      m_KeyboardDownButton |= GetKeyButtonValue(key);
-   }
-   else if (action == GLFW_RELEASE)
-   {
-      //Mouse up
-      m_KeyboardDownButton &= ~GetKeyButtonValue(key);
+   case GLFW_KEY_ESCAPE:
+      m_Keyboard.Escape(action);
+      break;
+   case GLFW_KEY_LEFT:
+      m_Keyboard.LeftArrow(action);
+      break;
+   case GLFW_KEY_RIGHT:
+      m_Keyboard.RightArrow(action);
+      break;
+   default:
+      //Now process keys that need the state maintained during some other action
+      if (action == GLFW_PRESS)
+      {
+         //Mouse down
+         m_KeyboardDownButton |= GetKeyButtonValue(key);
+      }
+      else if (action == GLFW_RELEASE)
+      {
+         //Mouse up
+         m_KeyboardDownButton &= ~GetKeyButtonValue(key);
+      }
    }
 }
 
@@ -191,9 +211,9 @@ void Window::ProcessMouseButton(int button, int action, int mods)
 void Window::ProcessScroll(const Vector2d& offset) {}
 
 
-void Window::ProcessFileDrop(vector<string>& files) 
+void Window::ProcessFileDrop(vector<string>& files)
 {
-   auto * setting = dynamic_cast<ion::base::Setting<std::vector<std::string>>*>(ion::base::SettingManager::GetSetting(SETTINGS_INPUT_FILES));
+   auto* setting = dynamic_cast<ion::base::Setting<std::vector<std::string>>*>(ion::base::SettingManager::GetSetting(SETTINGS_INPUT_FILES));
 
    if (setting != nullptr)
       setting->SetValue(files);

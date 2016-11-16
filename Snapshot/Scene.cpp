@@ -17,6 +17,9 @@
 #include "ion/math/matrixutils.h"
 #include "ion/demos/utils.h"
 #include "ion/text/outlinebuilder.h"
+#include "ion/base/datetime.h"
+#include "FileManager.hpp"
+#include "KeyboardHandler.hpp"
 
 // Resources for the HUD.
 ION_REGISTER_ASSETS(SnapshotAssets);
@@ -28,14 +31,23 @@ using namespace ion::text;
 
 namespace Snapshot{
 
-Scene::Scene():
+Scene::Scene(KeyboardHandler& keyboard):
    SceneBase(),
    m_InputFiles(SETTINGS_INPUT_FILES, vector<string>(), "Sets the relative files to load into the snapshot tool"),
-   m_HardBodyRadius(SETTINGS_HBR, 120.0f, "Sets the hard body radius between states in meters"),
-   m_EpochIndex(SETTINGS_EPOCH_INDEX, 0, "Sets index of the input files to display"),
+   m_EpochIndex(SETTINGS_INPUT_EPOCH_INDEX, 0, "Sets index of the input files to display"),
+
+   m_HardBodyRadius(SETTINGS_CONFIG_HBR, 120.0f, "Sets the hard body radius between states in meters"),
+   m_AllToAll_Use(SETTINGS_CONFIG_ALLTOALL_USE, false, "Determines whether to use One to One or All to All collisions"),
+   m_AllToAll_BinCount(SETTINGS_CONFIG_ALLTOALL_BIN_COUNT, 1000000, "Specifies the max number of bins to use in the X/Y/Z direction combined when calculating All-to-ALL"),
+   m_AllToAll_InitialBinMultiplier(SETTINGS_CONFIG_ALLTOALL_INITIAL_BIN_MULT, 1.0f, "If the All-to-All data falls outside the current bin boundary, the process must be restarted with a larger boundary. The initial value for the size of the boundary is determined by One-to-One boundary times this multiplier"),
+   m_AllToAll_MaxBinTries(SETTINGS_CONFIG_ALLTOALL_MAX_BIN_TRIES, 5, "If the All-to-All data falls outside the current bin boundary, the boundary size will be doubled and the process is restarted. This specifies the maximum number of times to restart the process before terminating"),
+
    m_LookAtCOM(SETTINGS_SCENE_LOOKATCOM, false, "Sets the focus point to the COM of the cluster"),
+   m_ShowCOM(SETTINGS_SCENE_SHOW_COM, false, "Shows a secondary axes at the COM of the cluster. The size of the axes will be the size of the cluser bounding box"),
    m_AutoScale(SETTINGS_SCENE_AUTOSCALE, false, "Enables autoscaling the axes to evenly display data"),
-   m_UseAllToAll(SETTINGS_SCENE_ALLTOALL, false, "Determines whether to use One to One or All to All collisions")
+   m_PointSize(SETTINGS_SCENE_POINT_SIZE, 4.0f, "Specifies the size in pixels of each point"),
+
+   m_FileManager(std::make_shared<FileManager>())
 {
    SnapshotAssets::RegisterAssetsOnce();
 
@@ -43,78 +55,44 @@ Scene::Scene():
    using std::placeholders::_1;
 
    //Add listenr for setting
-   m_InputFiles.RegisterListener("LoadInputFiles", bind(&Scene::LoadInputFiles, this, _1));
-   m_HardBodyRadius.RegisterListener("UpdateHBR", [&](SettingBase* setting) { ReloadPointData(); });
-   m_LookAtCOM.RegisterListener("SetCenterOfMass", [&](SettingBase* setting) { ReloadPointData(); });
-   m_AutoScale.RegisterListener("UpdateAutoscale", [&](SettingBase* setting) { ReloadPointData(); });
-   m_UseAllToAll.RegisterListener("SetAllToAll", [&](SettingBase* setting) { ReloadPointData(); });
+   m_InputFiles.RegisterListener("LoadInputFiles", [&](SettingBase* setting) { m_FileManager->SetFiles(static_cast<Setting<vector<string>>*>(setting)->GetValue()); });
+   m_EpochIndex.RegisterListener("UpdateEpochIndex", [&](SettingBase* setting) { m_FileManager->SetEpochIndex(static_cast<Setting<uint32_t>*>(setting)->GetValue()); });
+
+   m_HardBodyRadius.RegisterListener("UpdateHBR", [&](SettingBase* setting) { m_FileManager->SetHbr(static_cast<Setting<float>*>(setting)->GetValue()); });
+   m_AllToAll_Use.RegisterListener("SetAllToAll", [&](SettingBase* setting) { m_FileManager->SetAllToAll(static_cast<Setting<bool>*>(setting)->GetValue()); });
+
+   //m_LookAtCOM.RegisterListener("SetCenterOfMass", [&](SettingBase* setting) { ReloadPointData(); });
+   //m_ShowCOM.RegisterListener("UpdateAutoscale", [&](SettingBase* setting) { ReloadPointData(); });
+   //m_AutoScale.RegisterListener("UpdateAutoscale", [&](SettingBase* setting) { ReloadPointData(); });
 
    m_WorldRoot = BuildWorldSceneGraph();
    m_HudRoot = BuildHudSceneGraph();
 
    GetRoot()->AddChild(m_WorldRoot);
    GetRoot()->AddChild(m_HudRoot);
+
+   m_FileManager->SetHud(m_Hud);
+
+   keyboard.SetFileManager(m_FileManager);
 }
 
 Scene::~Scene() {}
 
-void Scene::Update()
+bool Scene::Update(double elapsedTimeInSec, double secSinceLastFrame)
 {
-   SceneBase::Update();
+   //Occurs once per loop. May or may not draw the frame after
+
+   //If return true, then we need to exit early
+   if (!m_Hud->Update(elapsedTimeInSec, secSinceLastFrame))
+      return false;
+
+   SceneBase::Update(elapsedTimeInSec, secSinceLastFrame);
 
    auto pos = Vector3f((float)GetCamera()->PositionWorld()[0], (float)GetCamera()->PositionWorld()[1], (float)GetCamera()->PositionWorld()[2]);
 
    m_WorldRoot->SetUniformByName(UNIFORM_WORLD_CAMERAPOSITION, pos);
 
-   //Occurs once per loop. May or may not draw the frame after
-   m_Hud->Update();
-}
-
-void Scene::LoadInputFiles(SettingBase* setting)
-{
-   //First attempt to read the files
-   if (!m_FileManager.LoadFiles(static_cast<Setting<vector<string>>*>(setting)->GetValue()))
-   {
-      //Error
-      LOG(ERROR) << "Error reading files";
-      return;
-   }
-
-   m_PointsNode->Enable(true);
-
-   ReloadPointData();
-}
-
-void Scene::ReloadPointData()
-{
-   Range3f bounds;
-
-   const SnapshotData& snapData = m_FileManager.GetData(m_EpochIndex.GetValue());
-
-   ion::base::SharedPtr<ion::base::VectorDataContainer<StateVertex>> vertexData(new ion::base::VectorDataContainer<StateVertex>(true));
-
-   auto diffVector = snapData.GetDiffData();
-
-   vertexData->GetMutableVector()->insert(vertexData->GetMutableVector()->end(), diffVector.begin(), diffVector.end());
-
-   m_PointsBuffer->SetData(vertexData, sizeof(StateVertex), vertexData->GetVector().size(), BufferObject::kStaticDraw);
-
-   if (m_AutoScale.GetValue())
-   {
-      auto size = bounds.GetSize();
-
-      float maxVal = max(size[0], max(size[1], size[2]));
-
-      //If we want to scale this, apply that here
-      m_WorldRoot->SetUniformByName(UNIFORM_GLOBAL_MODELVIEWMATRIX, ScaleMatrixH(maxVal / bounds.GetSize()));
-   }
-
-   auto center = Point3d::Zero();
-
-   if (m_LookAtCOM.GetValue())
-      center = static_cast<Point3d>(bounds.GetCenter());
-
-   GetCamera()->SetLookAt(center);
+   return true;
 }
 
 void Scene::RenderFrame()
@@ -189,11 +167,11 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
    //Now add the text nodes
    auto font = demoutils::InitFont(GetFontManager(), "Hud", 20U, 8U);
 
-   ion::text::FontImagePtr font_image = GetFontManager()->GetCachedFontImage("Axes");
+   FontImagePtr font_image = GetFontManager()->GetCachedFontImage("Axes");
 
    if (!font_image.Get())
    {
-      ion::text::GlyphSet glyph_set(ion::base::AllocatorPtr(NULL));
+      GlyphSet glyph_set(AllocatorPtr(NULL));
       font->AddGlyphsForAsciiCharacterRange('V', 'V', &glyph_set);
       font->AddGlyphsForAsciiCharacterRange('N', 'N', &glyph_set);
       font->AddGlyphsForAsciiCharacterRange('B', 'B', &glyph_set);
@@ -213,11 +191,11 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
    LayoutOptions region;
    region.target_point = Point2f(1.0f, 0.02f);
    region.target_size = Vector2f(0.0f, 0.1f);
-   region.horizontal_alignment = ion::text::HorizontalAlignment::kAlignLeft;
+   region.horizontal_alignment = kAlignLeft;
 
-   OutlineBuilderPtr vBuilder(new OutlineBuilder(font_image, GetShaderManager(), ion::base::AllocatorPtr()));
+   OutlineBuilderPtr vBuilder(new OutlineBuilder(font_image, GetShaderManager(), AllocatorPtr()));
 
-   if (vBuilder->Build(font_image->GetFont()->BuildLayout("V", region), ion::gfx::BufferObject::kStaticDraw))
+   if (vBuilder->Build(font_image->GetFont()->BuildLayout("V", region), BufferObject::kStaticDraw))
    {
       //Must set the color after building
       vBuilder->SetTextColor(Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
@@ -229,9 +207,9 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
       node->AddChild(tNode);
    }
 
-   OutlineBuilderPtr nBuilder(new OutlineBuilder(font_image, GetShaderManager(), ion::base::AllocatorPtr()));
+   OutlineBuilderPtr nBuilder(new OutlineBuilder(font_image, GetShaderManager(), AllocatorPtr()));
 
-   if (nBuilder->Build(font_image->GetFont()->BuildLayout("N", region), ion::gfx::BufferObject::kStaticDraw))
+   if (nBuilder->Build(font_image->GetFont()->BuildLayout("N", region), BufferObject::kStaticDraw))
    {
       //Must set the color after building
       nBuilder->SetTextColor(Vector4f(0.0f, 1.0f, 0.0f, 1.0f));
@@ -240,17 +218,17 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
 
       auto tNode = nBuilder->GetNode();
 
-      auto mat = ion::math::RotationMatrixAxisAngleH(Vector3f(-1.0f, 0.0f, 0.0f), Anglef::FromDegrees(-90.0f));
-      mat = ion::math::RotationMatrixAxisAngleH(Vector3f(0.0f, 0.0f, 1.0f), Anglef::FromDegrees(90.0f)) * mat;
+      auto mat = RotationMatrixAxisAngleH(Vector3f(-1.0f, 0.0f, 0.0f), Anglef::FromDegrees(-90.0f));
+      mat = RotationMatrixAxisAngleH(Vector3f(0.0f, 0.0f, 1.0f), Anglef::FromDegrees(90.0f)) * mat;
 
       tNode->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_MODELVIEWMATRIX, mat));
 
       node->AddChild(tNode);
    }
 
-   OutlineBuilderPtr bBuilder(new OutlineBuilder(font_image, GetShaderManager(), ion::base::AllocatorPtr()));
+   OutlineBuilderPtr bBuilder(new OutlineBuilder(font_image, GetShaderManager(), AllocatorPtr()));
 
-   if (bBuilder->Build(font_image->GetFont()->BuildLayout("B", region), ion::gfx::BufferObject::kStaticDraw))
+   if (bBuilder->Build(font_image->GetFont()->BuildLayout("B", region), BufferObject::kStaticDraw))
    {
       //Must set the color after building
       bBuilder->SetTextColor(Vector4f(0.0f, 0.0f, 1.0f, 1.0f));
@@ -259,8 +237,8 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
 
       auto tNode = bBuilder->GetNode();
 
-      auto mat = ion::math::RotationMatrixAxisAngleH(Vector3f(-1.0f, 0.0f, 0.0f), Anglef::FromDegrees(90.0f));
-      mat = ion::math::RotationMatrixAxisAngleH(Vector3f(0.0f, 1.0f, 0.0f), Anglef::FromDegrees(-90.0f)) * mat;
+      auto mat = RotationMatrixAxisAngleH(Vector3f(-1.0f, 0.0f, 0.0f), Anglef::FromDegrees(90.0f));
+      mat = RotationMatrixAxisAngleH(Vector3f(0.0f, 1.0f, 0.0f), Anglef::FromDegrees(-90.0f)) * mat;
 
       tNode->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_MODELVIEWMATRIX, mat));
 
@@ -407,19 +385,122 @@ NodePtr Scene::BuildWorldSceneGraph()
    world->AddChild(hbr);
 
    //Now create the particles
+   world->AddChild(BuildPointsNode());
+   world->AddChild(BuildMissDistNode());
+
+   world->AddChild(BuildSimpleAxes(GetShaderManager()));
+
+   return world;
+}
+
+#define JD_GSFC_BASE 2400000.5    //Jan 05 1941 12:00:00.000 UTC
+
+NodePtr Scene::BuildHudSceneGraph()
+{
+   m_Hud = std::make_shared<Hud>(GetFontManager(), GetShaderManager(), GetCamera()->GetViewportUniforms());
+
+   m_Hud->AddHudItem(std::make_shared<HudItem>("BFMC Snapshot"));
+
+   //Epoch
+   auto epoch = std::make_shared<HudItem>("@ 00/00/0000 00:00:00.000");
+   m_FileManager->AddPostProcessStep("Epoch", [=](const SnapshotData& snapshot)
+                                     {
+                                        double work = snapshot.GetEpoch();
+                                        double workDay = floor(work);
+                                        double fractionOfDay = work - workDay;
+                                        double julianDay = floor(work + JD_GSFC_BASE);
+
+                                        long l, n, i, j;
+
+                                        l = static_cast<long>(floor(julianDay)) + 68569l;
+                                        n = 4l * l / 146097l;
+                                        l = l - (146097l * n + 3l) / 4l;
+                                        i = 4000l * (l + 1l) / 1461001l;
+                                        l = l - 1461l * i / 4l + 31l;
+                                        j = 80l * l / 2447l;
+                                        uint8_t day = static_cast<uint8_t>(l - 2447l * j / 80l + 1); //Add one for index starting at 1 not 0
+                                        l = j / 11l;
+                                        uint8_t month = static_cast<uint8_t>(j + 2l - 12l * l);
+                                        int64_t year = 100l * (n - 49l) + i + l;
+
+                                        int32_t seconds = static_cast<int32_t>(abs(fractionOfDay * 86400.0));
+                                        int32_t nanoseconds = static_cast<int32_t>(fractionOfDay * 86400000.0 - seconds * 1000.0 + 0.5) * 1000000;
+
+                                        uint8_t hours = static_cast<uint8_t>(seconds / 3600);
+
+                                        seconds -= static_cast<int32_t>(hours) * 3600;
+
+                                        uint8_t minutes = static_cast<int32_t>(seconds / 60);
+
+                                        seconds -= static_cast<int32_t>(minutes) * 60;
+
+                                        DateTime fromMJD(year, month, day, hours, minutes, static_cast<uint8_t>(seconds), nanoseconds);
+
+                                        std::string epochText = "@ ";
+                                        std::string temp = "";
+
+                                        fromMJD.ComputeDateString(DateTime::DateStringEnum::kRenderDayMonthYear, &temp);
+                                        epochText += temp;
+
+                                        fromMJD.ComputeTimeString(DateTime::TimeStringEnum::kRenderHoursMinutesSeconds, &temp);
+                                        epochText += temp;
+
+                                        epoch->SetText(epochText);
+                                     });
+   m_Hud->AddHudItem(epoch);
+
+   //Pc
+   auto pc = std::make_shared<HudItem>("Pc: 0.0");
+   m_FileManager->AddPostProcessStep("Pc", [=](const SnapshotData& snapshot)
+                                     {
+                                        pc->SetText("Pc: " + ion::base::ValueToString(snapshot.GetStats().Pc));
+                                     });
+   m_Hud->AddHudItem(pc);
+
+   //Min Dist
+   auto minDist = std::make_shared<HudItem>("Min Dist (km): 0.0");
+   m_FileManager->AddPostProcessStep("MinDist", [=](const SnapshotData& snapshot)
+                                     {
+                                        minDist->SetText("Min Dist (km): " + ion::base::ValueToString(Length(Vector3f::ToVector(snapshot.GetStats().MinMiss))));
+                                     });
+   m_Hud->AddHudItem(minDist);
+
+   //HBR
+   auto hbr = std::make_shared<HudItem>("HBR (m): 120 m");
+   m_HardBodyRadius.RegisterListener("HBR", [=](SettingBase* setting)
+                                     {
+                                        hbr->SetText("HBR (m):" + setting->ToString());
+                                     });
+   m_Hud->AddHudItem(hbr);
+
+   //Collision Type
+   auto allToAll = std::make_shared<HudItem>("One-to-One");
+   m_AllToAll_Use.RegisterListener("UpdateHUD", [=](SettingBase* setting)
+                                   {
+                                      allToAll->SetText(static_cast<Setting<bool>*>(setting)->GetValue() ? "All-to-All" : "One-to-One");
+                                   });
+   m_Hud->AddHudItem(allToAll);
+
+   m_Hud->GetRootNode()->SetLabel("HUD");
+
+   return m_Hud->GetRootNode();
+}
+
+ion::gfx::NodePtr Scene::BuildPointsNode()
+{
    AttributeArrayPtr attribute_array(new AttributeArray);
    ShaderInputRegistryPtr pointsRegistry = ShaderInputRegistryPtr(new ShaderInputRegistry);
    pointsRegistry->IncludeGlobalRegistry();
 
    pointsRegistry->Add(ShaderInputRegistry::UniformSpec("uPointSize", kFloatUniform, "The size in pixels of the point"));
 
-   m_PointsBuffer = BufferObjectPtr(new BufferObject);
+   auto pointsBuffer = BufferObjectPtr(new BufferObject);
 
    StateVertex v;
    ion::gfxutils::BufferToAttributeBinder<StateVertex>(v)
       .Bind(v.Pos, ATTRIBUTE_GLOBAL_VERTEX)
       .BindAndNormalize(v.Color, ATTRIBUTE_GLOBAL_COLOR)
-      .Apply(pointsRegistry, attribute_array, m_PointsBuffer);
+      .Apply(pointsRegistry, attribute_array, pointsBuffer);
 
    ShaderProgramPtr pointsShader = GetShaderManager()->CreateShaderProgram("Point",
                                                                            pointsRegistry,
@@ -430,44 +511,90 @@ NodePtr Scene::BuildWorldSceneGraph()
    shape->SetPrimitiveType(Shape::kPoints);
    shape->SetAttributeArray(attribute_array);
 
-   m_PointsNode = NodePtr(new Node);
-   m_PointsNode->AddShape(shape);
-   m_PointsNode->SetShaderProgram(pointsShader);
+   auto pointsNode = NodePtr(new Node);
+   pointsNode->AddShape(shape);
+   pointsNode->SetShaderProgram(pointsShader);
 
-   m_PointsNode->AddUniform(pointsRegistry->Create<Uniform>("uPointSize", 4.0f));
-   m_PointsNode->Enable(false);
+   pointsNode->AddUniform(pointsRegistry->Create<Uniform>("uPointSize", m_PointSize.GetValue()));
 
-   //StateTablePtr pointsTable(new StateTable());
-   //pointsTable->Enable(StateTable::kMultisample, false);
+   m_PointSize.RegisterListener("UpdateAutoscale", [=](SettingBase* setting)
+                                {
+                                   pointsNode->AddUniform(pointsRegistry->Create<Uniform>("uPointSize", static_cast<Setting<float>*>(setting)->GetValue()));
+                                });
 
-   //m_PointsNode->SetStateTable(pointsTable);
+   pointsNode->Enable(false);
 
-   world->AddChild(m_PointsNode);
-
-   world->AddChild(BuildSimpleAxes(GetShaderManager()));
-
-   return world;
-}
-
-NodePtr Scene::BuildHudSceneGraph()
-{
-   m_Hud = std::make_shared<Hud>(GetFontManager(), GetShaderManager(), GetCamera()->GetViewportUniforms());
-
-   m_Hud->AddHudItem(std::make_shared<HudItem>("BFMC Snapshot"));
-   m_Hud->AddHudItem(std::make_shared<HudItem>("@ 12/09/2016 08:58:27.379"));
-   m_Hud->AddHudItem(std::make_shared<HudItem>("Pc = 5.4e-04"));
-
-   auto hbr = std::make_shared<HudItem>("HBR = 120 m");
-
-   m_HardBodyRadius.RegisterListener("SetHBRinHUD", [=](SettingBase* setting)
+   m_FileManager->AddPostProcessStep("SetBufferData", [=](const SnapshotData& snapshot)
                                      {
-                                        hbr->SetText("HBR = " + setting->ToString() + " m");
+                                        SharedPtr<VectorDataContainer<StateVertex>> vertexData(new VectorDataContainer<StateVertex>(true));
+
+                                        vertexData->GetMutableVector()->insert(vertexData->GetMutableVector()->end(), snapshot.GetOutputData().begin(), snapshot.GetOutputData().end());
+
+                                        pointsBuffer->SetData(vertexData, sizeof(StateVertex), vertexData->GetVector().size(), BufferObject::kStaticDraw);
+
+                                        pointsNode->Enable(snapshot.GetOutputData().size() > 0);
                                      });
 
-   m_Hud->AddHudItem(hbr);
+   return pointsNode;
+}
 
-   m_Hud->GetRootNode()->SetLabel("HUD");
+ion::gfx::NodePtr Scene::BuildMissDistNode()
+{
+   //Now create the particles
+   AttributeArrayPtr attribute_array(new AttributeArray);
 
-   return m_Hud->GetRootNode();
+   auto buffer = BufferObjectPtr(new BufferObject);
+
+   SharedPtr<VectorDataContainer<StateVertex>> container = SharedPtr<VectorDataContainer<StateVertex>>(new VectorDataContainer<StateVertex>(false));
+
+   auto& vector = *container->GetMutableVector();
+
+   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(255, 0, 0, 255)));
+   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
+
+   buffer->SetData(container, sizeof(StateVertex), container->GetVector().size(), BufferObject::kStaticDraw);
+
+   StateVertex v;
+   ion::gfxutils::BufferToAttributeBinder<StateVertex>(v)
+      .Bind(v.Pos, ATTRIBUTE_GLOBAL_VERTEX)
+      .Bind(v.Color, ATTRIBUTE_GLOBAL_COLOR)
+      .Apply(ShaderInputRegistry::GetGlobalRegistry(), attribute_array, buffer);
+
+   ShapePtr shape(new Shape);
+   shape->SetPrimitiveType(Shape::kLines);
+   shape->SetAttributeArray(attribute_array);
+
+   ShaderProgramPtr flatShader = GetShaderManager()->CreateShaderProgram("Flat",
+                                                                         ShaderInputRegistry::GetGlobalRegistry(),
+                                                                         ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.vert", false)),
+                                                                         ion::gfxutils::ShaderSourceComposerPtr(new ion::gfxutils::ZipAssetComposer("Flat.frag", false)));
+
+   auto node = NodePtr(new Node);
+   node->SetLabel("Miss Distance");
+
+   StateTablePtr stateTable(new StateTable());
+   stateTable->SetLineWidth(3.0f);
+
+   node->SetStateTable(stateTable);
+
+   node->AddShape(shape);
+   node->SetShaderProgram(flatShader);
+
+   node->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_BASECOLOR, Vector4f(1.0f, 1.0f, 1.0f, 1.0f)));
+   //node->Enable(false);
+
+   m_FileManager->AddPostProcessStep("SetMinMissData", [=](const SnapshotData& snapshot)
+                                     {
+                                        SharedPtr<VectorDataContainer<StateVertex>> vertexData(new VectorDataContainer<StateVertex>(true));
+
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(255, 255, 0, 255)));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f::ToVector(snapshot.GetStats().MinMiss), Vector4ui8(255, 255, 0, 255)));
+
+                                        buffer->SetData(vertexData, sizeof(StateVertex), vertexData->GetVector().size(), BufferObject::kStaticDraw);
+
+                                        node->Enable(snapshot.GetOutputData().size() > 0);
+                                     });
+
+   return node;
 }
 }
