@@ -403,7 +403,7 @@ Matrix3d SnapshotData::CalcVNB(const State& origin)
 FileManager::FileManager():
    m_CurrentEpochIndex(0),
    m_AllToAll(false),
-   m_HBR(120.0f) {}
+   m_HBR(.120f) {}
 
 FileManager::~FileManager() {}
 
@@ -654,7 +654,7 @@ void FileManager::Load()
    //For each state data, create a unit of work
    for (size_t i = 0; i < m_StateData.size(); i++)
    {
-      workUnits.push_back(SnapshotUnitOfWork(m_StateData[i], m_AllToAll, m_HBR / 1000.0f, progressHandler, m_CancellationCount));
+      workUnits.push_back(SnapshotUnitOfWork(m_StateData[i], m_AllToAll, m_HBR, progressHandler, m_CancellationCount));
    }
 
    //Load the current data for the current index

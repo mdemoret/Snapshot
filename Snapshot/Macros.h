@@ -13,6 +13,7 @@
 #define SETTINGS_SCENE_SHOW_COM "Scene/ShowCOM"
 #define SETTINGS_SCENE_AUTOSCALE "Scene/AutoScale"
 #define SETTINGS_SCENE_POINT_SIZE "Scene/PointSize"
+#define SETTINGS_SCENE_MISSDISTCOLOR "Scene/MissDistColor"
 
 #define UNIFORM_GLOBAL_VIEWPORTSIZE "uViewportSize"
 #define UNIFORM_GLOBAL_PROJECTIONMATRIX "uProjectionMatrix"

@@ -2,6 +2,8 @@
 
 #include "IonFwd.h"
 
+class Camera;
+
 namespace Snapshot{
 class FileManager;
 
@@ -14,10 +16,12 @@ public:
    void Escape(int action);
    void LeftArrow(int action);
    void RightArrow(int action);
+   void R(int action, int modifier);
 
-   void SetFileManager(const std::shared_ptr<FileManager> & fileManager);
+   void Initialize(const std::shared_ptr<FileManager> & fileManager, const std::shared_ptr<Camera> & camera);
 
 private:
    std::shared_ptr<FileManager> m_FileManager;
+   std::shared_ptr<Camera> m_Camera;
 };
 }

@@ -3,6 +3,7 @@
 #include "ion/base/settingmanager.h"
 #include "Macros.h"
 #include "FileManager.hpp"
+#include "Camera.hpp"
 
 namespace Snapshot{
 KeyboardHandler::KeyboardHandler() {}
@@ -39,8 +40,25 @@ void KeyboardHandler::RightArrow(int action)
       setting->SetValue(setting->GetValue() + 1);
 }
 
-void KeyboardHandler::SetFileManager(const std::shared_ptr<FileManager>& fileManager)
+void KeyboardHandler::R(int action, int modifier) 
+{
+   if (action != GLFW_PRESS)
+      return;
+
+   //If shift is held, then reset to Conjunction plane
+   if (modifier == GLFW_MOD_SHIFT)
+   {
+
+   }
+   else
+   {
+      m_Camera->ResetView();
+   }
+}
+
+void KeyboardHandler::Initialize(const std::shared_ptr<FileManager>& fileManager, const std::shared_ptr<Camera>& camera)
 {
    m_FileManager = fileManager;
+   m_Camera = camera;
 }
 }

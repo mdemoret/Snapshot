@@ -33,21 +33,21 @@ namespace Snapshot{
 
 Scene::Scene(KeyboardHandler& keyboard):
    SceneBase(),
+   m_FileManager(std::make_shared<FileManager>()),
    m_InputFiles(SETTINGS_INPUT_FILES, vector<string>(), "Sets the relative files to load into the snapshot tool"),
-   m_EpochIndex(SETTINGS_INPUT_EPOCH_INDEX, 0, "Sets index of the input files to display"),
 
-   m_HardBodyRadius(SETTINGS_CONFIG_HBR, 120.0f, "Sets the hard body radius between states in meters"),
+   m_EpochIndex(SETTINGS_INPUT_EPOCH_INDEX, 0, "Sets index of the input files to display"),
+   m_HardBodyRadius(SETTINGS_CONFIG_HBR, .120f, "Sets the hard body radius between states in kilometers"),
    m_AllToAll_Use(SETTINGS_CONFIG_ALLTOALL_USE, false, "Determines whether to use One to One or All to All collisions"),
    m_AllToAll_BinCount(SETTINGS_CONFIG_ALLTOALL_BIN_COUNT, 1000000, "Specifies the max number of bins to use in the X/Y/Z direction combined when calculating All-to-ALL"),
    m_AllToAll_InitialBinMultiplier(SETTINGS_CONFIG_ALLTOALL_INITIAL_BIN_MULT, 1.0f, "If the All-to-All data falls outside the current bin boundary, the process must be restarted with a larger boundary. The initial value for the size of the boundary is determined by One-to-One boundary times this multiplier"),
-   m_AllToAll_MaxBinTries(SETTINGS_CONFIG_ALLTOALL_MAX_BIN_TRIES, 5, "If the All-to-All data falls outside the current bin boundary, the boundary size will be doubled and the process is restarted. This specifies the maximum number of times to restart the process before terminating"),
 
+   m_AllToAll_MaxBinTries(SETTINGS_CONFIG_ALLTOALL_MAX_BIN_TRIES, 5, "If the All-to-All data falls outside the current bin boundary, the boundary size will be doubled and the process is restarted. This specifies the maximum number of times to restart the process before terminating"),
    m_LookAtCOM(SETTINGS_SCENE_LOOKATCOM, false, "Sets the focus point to the COM of the cluster"),
    m_ShowCOM(SETTINGS_SCENE_SHOW_COM, false, "Shows a secondary axes at the COM of the cluster. The size of the axes will be the size of the cluser bounding box"),
    m_AutoScale(SETTINGS_SCENE_AUTOSCALE, false, "Enables autoscaling the axes to evenly display data"),
    m_PointSize(SETTINGS_SCENE_POINT_SIZE, 4.0f, "Specifies the size in pixels of each point"),
-
-   m_FileManager(std::make_shared<FileManager>())
+   m_MissDistColor(SETTINGS_SCENE_MISSDISTCOLOR, Vector4ui(45, 45, 48, 255), "Set the color of the minimum distance line in the scene. Enter values between 0 and 255 for each component to make up the RGBA color. For example, V[255, 255, 0, 255] makes a solid yellow color. Min dist line will change color next time the min dist value is changed")
 {
    SnapshotAssets::RegisterAssetsOnce();
 
@@ -73,7 +73,7 @@ Scene::Scene(KeyboardHandler& keyboard):
 
    m_FileManager->SetHud(m_Hud);
 
-   keyboard.SetFileManager(m_FileManager);
+   keyboard.Initialize(m_FileManager, GetCamera());
 }
 
 Scene::~Scene() {}
@@ -100,6 +100,40 @@ void Scene::RenderFrame()
    GetRenderer()->DrawScene(GetRoot());
 }
 
+void buildAxesArrowAndTicks(ion::base::AllocVector<StateVertex> & data, const Vector3f & pDir, const Vector3f & sDir, const Vector4f & color)
+{
+   Vector4ui8 pColor = Vector4ui8(Vector4f::Fill(255.0f) * color);
+   Vector4ui8 sColor = Vector4ui8(Vector4f(255.0f, 255.0f, 255.0f, 64.0f) * color);
+
+   //Main
+   data.push_back(StateVertex(pDir * Vector3f::Fill(0), pColor));
+   data.push_back(StateVertex(pDir * Vector3f::Fill(1), pColor));
+
+   //Arrow Head
+   data.push_back(StateVertex(pDir * Vector3f::Fill(1), pColor));
+   data.push_back(StateVertex(pDir * Vector3f::Fill(0.95f) + sDir * Vector3f::Fill(0.05f), pColor));
+   data.push_back(StateVertex(pDir * Vector3f::Fill(1), pColor));
+   data.push_back(StateVertex(pDir * Vector3f::Fill(0.95f) + sDir * Vector3f::Fill(-0.05f), pColor));
+
+   //Tick Marks
+   Vector3f sTick = sDir * Vector3f::Fill(0.025f);
+
+   for (size_t i = 1; i < 10; i++)
+   {
+      if (i == 5)
+      {
+         //Double the tick size for the half marker
+         data.push_back(StateVertex(pDir * Vector3f::Fill(0.1f * i) + 2.0f * sTick, sColor));
+         data.push_back(StateVertex(pDir * Vector3f::Fill(0.1f * i) + -2.0f * sTick, sColor));
+      }
+      else
+      {
+         data.push_back(StateVertex(pDir * Vector3f::Fill(0.1f * i) + sTick, sColor));
+         data.push_back(StateVertex(pDir * Vector3f::Fill(0.1f * i) + -sTick, sColor));
+      }
+   }
+}
+
 NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderManager)
 {
    //Now create the particles
@@ -111,34 +145,24 @@ NodePtr Scene::BuildSimpleAxes(const ion::gfxutils::ShaderManagerPtr& shaderMana
 
    auto& vector = *container->GetMutableVector();
 
-   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(255, 0, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0.95f, 0.05f, 0), Vector4ui8(255, 0, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(1, 0, 0), Vector4ui8(255, 0, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0.95f, -0.05f, 0), Vector4ui8(255, 0, 0, 255)));
+   //X Axis
+   buildAxesArrowAndTicks(vector, Vector3f(1, 0, 0), Vector3f(0, 1, 0), Vector4f(1, 0, 0, 1));
+   buildAxesArrowAndTicks(vector, Vector3f(-1, 0, 0), Vector3f(0, 1, 0), Vector4f(1, 0, 0, 1));
 
-   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(0, 255, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector4ui8(0, 255, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector4ui8(0, 255, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 0.95f, 0.05f), Vector4ui8(0, 255, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 1, 0), Vector4ui8(0, 255, 0, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 0.95f, -0.05f), Vector4ui8(0, 255, 0, 255)));
+   //Y Axis
+   buildAxesArrowAndTicks(vector, Vector3f(0, 1, 0), Vector3f(0, 0, 1), Vector4f(0, 1, 0, 1));
+   buildAxesArrowAndTicks(vector, Vector3f(0, -1, 0), Vector3f(0, 0, 1), Vector4f(0, 1, 0, 1));
 
-   vector.push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(0, 0, 255, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector4ui8(0, 0, 255, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector4ui8(0, 0, 255, 255)));
-   vector.push_back(StateVertex(Vector3f(0.05f, 0, 0.95f), Vector4ui8(0, 0, 255, 255)));
-   vector.push_back(StateVertex(Vector3f(0, 0, 1), Vector4ui8(0, 0, 255, 255)));
-   vector.push_back(StateVertex(Vector3f(-0.05f, 0, 0.95f), Vector4ui8(0, 0, 255, 255)));
-
+   //Z Axis
+   buildAxesArrowAndTicks(vector, Vector3f(0, 0, 1), Vector3f(1, 0, 0), Vector4f(0, 0, 1, 1));
+   buildAxesArrowAndTicks(vector, Vector3f(0, 0, -1), Vector3f(1, 0, 0), Vector4f(0, 0, 1, 1));
 
    buffer->SetData(container, sizeof(StateVertex), container->GetVector().size(), BufferObject::kStaticDraw);
 
    StateVertex v;
    ion::gfxutils::BufferToAttributeBinder<StateVertex>(v)
       .Bind(v.Pos, ATTRIBUTE_GLOBAL_VERTEX)
-      .Bind(v.Color, ATTRIBUTE_GLOBAL_COLOR)
+      .BindAndNormalize(v.Color, ATTRIBUTE_GLOBAL_COLOR)
       .Apply(ShaderInputRegistry::GetGlobalRegistry(), attribute_array, buffer);
 
    ShapePtr shape(new Shape);
@@ -331,7 +355,7 @@ NodePtr Scene::BuildWorldSceneGraph()
 
    hbr->SetShaderProgram(phongShader);
 
-   auto modelMat = ScaleMatrixH(Vector3f::Fill(2.0f * m_HardBodyRadius.GetValue() / 1000.0f));
+   auto modelMat = ScaleMatrixH(Vector3f::Fill(2.0f * m_HardBodyRadius.GetValue()));
 
    auto normalMat = Transpose(Inverse(NonhomogeneousSubmatrixH(modelMat)));
 
@@ -346,7 +370,7 @@ NodePtr Scene::BuildWorldSceneGraph()
 
    m_HardBodyRadius.RegisterListener("UpdateHBRShape", [hbr](SettingBase* setting)
                                      {
-                                        float newHBR = dynamic_cast<Setting<float>*>(setting)->GetValue() / 1000.0f;
+                                        float newHBR = dynamic_cast<Setting<float>*>(setting)->GetValue();
 
                                         auto modelMat = ScaleMatrixH(Vector3f::Fill(2.0f * newHBR));
 
@@ -466,10 +490,10 @@ NodePtr Scene::BuildHudSceneGraph()
    m_Hud->AddHudItem(minDist);
 
    //HBR
-   auto hbr = std::make_shared<HudItem>("HBR (m): 120 m");
+   auto hbr = std::make_shared<HudItem>("HBR (km): 0.120");
    m_HardBodyRadius.RegisterListener("HBR", [=](SettingBase* setting)
                                      {
-                                        hbr->SetText("HBR (m):" + setting->ToString());
+                                        hbr->SetText("HBR (km): " + ion::base::ValueToString(static_cast<Setting<float>*>(setting)->GetValue()));
                                      });
    m_Hud->AddHudItem(hbr);
 
@@ -557,7 +581,7 @@ ion::gfx::NodePtr Scene::BuildMissDistNode()
    StateVertex v;
    ion::gfxutils::BufferToAttributeBinder<StateVertex>(v)
       .Bind(v.Pos, ATTRIBUTE_GLOBAL_VERTEX)
-      .Bind(v.Color, ATTRIBUTE_GLOBAL_COLOR)
+      .BindAndNormalize(v.Color, ATTRIBUTE_GLOBAL_COLOR)
       .Apply(ShaderInputRegistry::GetGlobalRegistry(), attribute_array, buffer);
 
    ShapePtr shape(new Shape);
@@ -583,12 +607,74 @@ ion::gfx::NodePtr Scene::BuildMissDistNode()
    node->AddUniform(ShaderInputRegistry::GetGlobalRegistry()->Create<Uniform>(UNIFORM_GLOBAL_BASECOLOR, Vector4f(1.0f, 1.0f, 1.0f, 1.0f)));
    //node->Enable(false);
 
+   m_MissDistColor.RegisterListener("Bound color", [](SettingBase* setting) {
+
+      auto colorSetting = static_cast<Setting<Vector4ui>*>(setting);
+
+      Vector4ui clamped = colorSetting->GetValue();
+
+      for (size_t i = 0; i < 4; i++)
+      {
+         clamped[i] = std::min(clamped[i], 255u);
+      }
+
+      if (clamped != colorSetting->GetValue())
+         colorSetting->SetValue(clamped);
+   });
+
    m_FileManager->AddPostProcessStep("SetMinMissData", [=](const SnapshotData& snapshot)
                                      {
                                         SharedPtr<VectorDataContainer<StateVertex>> vertexData(new VectorDataContainer<StateVertex>(true));
 
-                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(0, 0, 0), Vector4ui8(255, 255, 0, 255)));
-                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f::ToVector(snapshot.GetStats().MinMiss), Vector4ui8(255, 255, 0, 255)));
+                                        Vector3f endPoint = Vector3f::ToVector(snapshot.GetStats().MinMiss);
+                                        
+                                        //Guarenteed to be between 0-255
+                                        Vector4ui8 primaryColor = Vector4ui8(m_MissDistColor.GetValue());
+                                        Vector4ui8 secondaryColor = primaryColor;
+                                        secondaryColor[3] = primaryColor[3] / 3;
+
+                                        //Create the primary line
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(0, 0, 0), primaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(endPoint, primaryColor));
+
+                                        //Projection into VN
+                                        Vector3f projPoint = Vector3f(endPoint[0], endPoint[1], 0.0f);
+
+                                        //Now add the projection of the vector onto the planes
+                                        vertexData->GetMutableVector()->push_back(StateVertex(endPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(0.0f, projPoint[1], projPoint[2]), secondaryColor));
+
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(projPoint[0], 0.0f, projPoint[2]), secondaryColor));
+
+                                        //Projection into VB
+                                        projPoint = Vector3f(endPoint[0], 0.0f, endPoint[2]);
+
+                                        //Now add the projection of the vector onto the planes
+                                        vertexData->GetMutableVector()->push_back(StateVertex(endPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(0.0f, projPoint[1], projPoint[2]), secondaryColor));
+
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(projPoint[0], projPoint[1], 0.0f), secondaryColor));
+
+                                        //Projection into NB
+                                        projPoint = Vector3f(0.0f, endPoint[1], endPoint[2]);
+
+                                        //Now add the projection of the vector onto the planes
+                                        vertexData->GetMutableVector()->push_back(StateVertex(endPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(projPoint[0], 0.0f, projPoint[2]), secondaryColor));
+
+                                        vertexData->GetMutableVector()->push_back(StateVertex(projPoint, secondaryColor));
+                                        vertexData->GetMutableVector()->push_back(StateVertex(Vector3f(projPoint[0], projPoint[1], 0.0f), secondaryColor));
 
                                         buffer->SetData(vertexData, sizeof(StateVertex), vertexData->GetVector().size(), BufferObject::kStaticDraw);
 

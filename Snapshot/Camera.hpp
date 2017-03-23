@@ -19,6 +19,9 @@ public:
    const ion::gfx::UniformBlockPtr & GetViewportUniforms() const;
    const ion::gfx::UniformBlockPtr & Get3dUniforms() const;
 
+   //Resets just the parameters related to the position and orientation of the camera
+   void ResetView();
+
    /**
    The position of the camera.
    */

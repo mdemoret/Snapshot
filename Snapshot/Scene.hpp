@@ -54,5 +54,7 @@ private:
    ion::base::Setting<bool> m_ShowCOM;
    ion::base::Setting<bool> m_AutoScale;
    ion::base::Setting<float> m_PointSize;
+
+   ion::base::Setting<ion::math::Vector4ui> m_MissDistColor;
 };
 }

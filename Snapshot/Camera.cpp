@@ -47,7 +47,7 @@ Camera::Camera(StateTablePtr rootStateTable) :
 
 Camera::~Camera() {}
 
-void Camera::UpdateUniforms() 
+void Camera::UpdateUniforms()
 {
    m_ViewportUniforms->SetUniformByName<Vector2i>(UNIFORM_GLOBAL_VIEWPORTSIZE, Vector2i(GetViewportSize()));
    m_3dUniforms->SetUniformByName<Matrix4f>(UNIFORM_GLOBAL_PROJECTIONMATRIX, Matrix4f(ProjectionMatrix()));
@@ -64,24 +64,15 @@ const UniformBlockPtr& Camera::Get3dUniforms() const
    return m_3dUniforms;
 }
 
-//void Camera::Reset()
-//{
-//   //Reset all the values which is useful when changing viewpoints
-//   m_FieldOfView = 45.0;
-//   m_AspectRatio = 1.0;
-//   m_AutoAspectRatio = true;
-//   m_NearPlane = 0.01;
-//   m_FarPlane = 100.0;
-//   m_PositionWorld = Point3d(0.0, 0.0, 0.0);
-//   m_Orientation = Matrix3d::Identity();
-//   m_Scale = Point3d(1.0);
-//   c_ViewMatrixDirty = true;
-//   c_ViewProjectionMatrixDirty = true;
-//   m_WindowBounds = Vector4ui(0, 0, 100, 100);
-//   m_PerspectiveProjection = true;
-//   c_ProjectionMatrix = Matrix4d::Identity();
-//   c_ProjectionMatrixDirty = true;
-//}
+void Camera::ResetView()
+{
+   //Reset all the values which is useful when changing viewpoints
+   SetScale(Vector3d::Fill(1.0));
+   SetLookAt(Point3d::Zero());
+   SetRA(Angled::FromDegrees(0.0));
+   SetDEC(Angled::FromDegrees(0.0));
+   SetRadius(Vector1d(4.0));
+}
 
 Point3d Camera::PositionWorld() const
 {
@@ -243,7 +234,7 @@ void Camera::SetScale(const Vector3d& scale)
    c_ViewProjectionMatrixDirty = true;
 }
 
-void Camera::SetLookAt(const ion::math::Point3d& lookAtCenter) 
+void Camera::SetLookAt(const ion::math::Point3d& lookAtCenter)
 {
    if (m_LookAtCenter == lookAtCenter)
       return;
@@ -270,7 +261,8 @@ void Camera::SetRA(ion::math::Angled ra)
    c_ViewProjectionMatrixDirty = true;
 }
 
-void Camera::SetDEC(ion::math::Angled dec) {
+void Camera::SetDEC(ion::math::Angled dec)
+{
    while (dec <= Angled::FromDegrees(-180.0))
       dec += Angled::FromDegrees(360.0);
    while (dec > Angled::FromDegrees(180.0))
@@ -285,7 +277,7 @@ void Camera::SetDEC(ion::math::Angled dec) {
    c_ViewProjectionMatrixDirty = true;
 }
 
-void Camera::SetRadius(ion::math::Vector1d radius) 
+void Camera::SetRadius(ion::math::Vector1d radius)
 {
    if (radius[0] < 1e-6)
       radius[0] = 1e-6f;
@@ -314,13 +306,14 @@ void Camera::SetRadius(ion::math::Vector1d radius)
 //   SetOrientation(Rotationd::FromRotationMatrix(NonhomogeneousSubmatrixH(LookAtMatrixFromCenter(eye, center, up))));//Get the 3x3 top left elements when using the look at method
 //}
 
-void Camera::DeltaViewpoint(const ion::math::Angled& deltaRa, const ion::math::Angled& deltaDec, const ion::math::Vector1d& deltaRange) 
+void Camera::DeltaViewpoint(const ion::math::Angled& deltaRa, const ion::math::Angled& deltaDec, const ion::math::Vector1d& deltaRange)
 {
    SetRA(m_RA + deltaRa);
    SetDEC(m_DEC + deltaDec);
    SetRadius(m_Radius + deltaRange);
 }
-void Camera::ScaleViewpoint(double scaleRa, double scaleDec, double scaleRange) 
+
+void Camera::ScaleViewpoint(double scaleRa, double scaleDec, double scaleRange)
 {
    SetRA(m_RA * scaleRa);
    SetDEC(m_DEC * scaleDec);
@@ -443,7 +436,8 @@ uint32_t Camera::GetViewportY() const
 //   return m_Orientation[1];
 //}
 
-ion::math::Vector3d Camera::Up() const {
+ion::math::Vector3d Camera::Up() const
+{
    return Vector3d(-Cosine(m_RA) * Sine(m_DEC), -Sine(m_RA) * Sine(m_DEC), Cosine(m_DEC));
 }
 

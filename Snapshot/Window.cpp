@@ -118,6 +118,9 @@ void Window::ProcessKey(int key, int scancode, int action, int mods)
    case GLFW_KEY_RIGHT:
       m_Keyboard.RightArrow(action);
       break;
+   case GLFW_KEY_R:
+      m_Keyboard.R(action, mods);
+      break;
    default:
       //Now process keys that need the state maintained during some other action
       if (action == GLFW_PRESS)
